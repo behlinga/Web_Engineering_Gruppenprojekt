@@ -1,0 +1,66 @@
+@model IEnumerable<Web_Engineering_Gruppenprojekt.Models.Chapter>
+@{
+    var course = ViewBag.Course as Web_Engineering_Gruppenprojekt.Models.Course;
+    var questionCounts = ViewBag.QuestionCounts as Dictionary<int, int> ?? new Dictionary<int, int>();
+    ViewData["Title"] = $"Kapitel – {course?.Title}";
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Course" asp-action="Index">Lehrveranstaltungen</a></li>
+        <li class="breadcrumb-item active">@course?.Title</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2>@course?.Title</h2>
+        <p class="text-muted mb-0">@course?.LecturerName &middot; @course?.Level</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-controller="Exam" asp-action="Index" asp-route-courseId="@course?.Id" class="btn btn-outline-primary">Prüfungen</a>
+        <a asp-action="Create" asp-route-courseId="@course?.Id" class="btn btn-primary">+ Neues Kapitel</a>
+    </div>
+</div>
+
+<table class="table table-hover">
+    <thead class="table-light">
+    <tr>
+        <th>#</th>
+        <th>Titel</th>
+        <th>Folien</th>
+        <th>Fragen</th>
+        <th></th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var chapter in Model)
+    {
+        <tr>
+            <td>@chapter.ChapterNumber</td>
+            <td>@chapter.Title</td>
+            <td>
+                @if (!string.IsNullOrEmpty(chapter.SlidePath))
+                {
+                    <a href="@chapter.SlidePath" target="_blank" class="badge bg-success text-decoration-none">
+                        @chapter.SlideFileName
+                    </a>
+                }
+                else
+                {
+                    <span class="text-muted small">keine Datei</span>
+                }
+            </td>
+            <td>
+                <a asp-controller="MCQuestion" asp-action="Index" asp-route-chapterId="@chapter.Id" class="badge bg-secondary text-decoration-none">
+                    @(questionCounts.TryGetValue(chapter.Id, out var qc) ? qc : 0) Fragen
+                </a>
+            </td>
+            <td class="text-end">
+                <a asp-action="Edit" asp-route-id="@chapter.Id" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+                <a asp-action="Delete" asp-route-id="@chapter.Id" class="btn btn-sm btn-outline-danger">Löschen</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

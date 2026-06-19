@@ -1,8 +1,54 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@{
+    ViewData["Title"] = "Startseite";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="p-5 mb-4 bg-light rounded-3">
+    <div class="container-fluid py-5">
+        <h1 class="display-5 fw-bold">MC-Klausurmanager</h1>
+        <p class="col-md-8 fs-4">
+            Verwalten Sie Lehrveranstaltungen, Kapitel und Fragenkataloge an einem Ort und stellen Sie
+            daraus per Zufall Multiple-Choice-Klausuren zusammen. Mit KI-Unterstützung können Sie neue
+            Fragen aus Ihren Vorlesungsfolien generieren und bestehende Fragen auf sprachliche Qualität
+            und Eindeutigkeit prüfen lassen.
+        </p>
+        <a asp-controller="Course" asp-action="Index" class="btn btn-primary btn-lg">
+            Zu den Lehrveranstaltungen
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Veranstaltungen verwalten</h5>
+                <p class="card-text text-muted">
+                    Lehrveranstaltungen, Kapitel und Fragen anlegen, bearbeiten und löschen –
+                    inklusive PDF-Upload der Vorlesungsfolien je Kapitel.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">KI-Unterstützung</h5>
+                <p class="card-text text-muted">
+                    Fragen aus den hochgeladenen Folien automatisch generieren und bestehende
+                    Fragen auf Eindeutigkeit überprüfen lassen.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Klausuren zusammenstellen</h5>
+                <p class="card-text text-muted">
+                    Per Zufall n Fragen ohne Dubletten zu einer druckbaren Prüfung
+                    zusammenstellen.
+                </p>
+            </div>
+        </div>
+    </div>
 </div>

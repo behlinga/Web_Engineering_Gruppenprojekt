@@ -1,0 +1,117 @@
+@model IEnumerable<Web_Engineering_Gruppenprojekt.Models.MCQuestion>
+@{
+    var chapter = ViewBag.Chapter as Web_Engineering_Gruppenprojekt.Models.Chapter;
+    ViewData["Title"] = $"Fragen – {chapter?.Title}";
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Course" asp-action="Index">Lehrveranstaltungen</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Chapter" asp-action="Index" asp-route-courseId="@chapter?.CourseId">@chapter?.Course?.Title</a></li>
+        <li class="breadcrumb-item active">@chapter?.Title</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>@chapter?.Title – Fragen</h2>
+    <div class="d-flex gap-2">
+        @if (!string.IsNullOrEmpty(chapter?.SlidePath))
+        {
+            <form asp-action="GenerateQuestion" asp-route-chapterId="@chapter.Id" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-success">+ KI-Frage generieren</button>
+            </form>
+        }
+        else
+        {
+            <button class="btn btn-success" disabled title="Bitte zuerst Folien hochladen">+ KI-Frage generieren</button>
+        }
+    </div>
+</div>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+
+@foreach (var question in Model)
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item fw-bold fs-6">@question.QuestionText</li>
+                @foreach (var option in question.Options)
+                {
+                    <li class="list-group-item @(option.IsCorrect ? "text-success fw-semibold" : "")">
+                        @if (option.IsCorrect)
+                        {
+                            <span class="me-1">&#10003;</span>
+                        }
+                        @option.AnswerText
+                    </li>
+                }
+                <li class="list-group-item d-flex gap-2 justify-content-end">
+                    <a asp-action="Edit" asp-route-id="@question.Id" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+                    <button type="button" class="btn btn-sm btn-outline-info"
+                            data-question-id="@question.Id"
+                            onclick="checkQuestion(@question.Id)">
+                        KI-Prüfung
+                    </button>
+                    <form asp-action="Delete" asp-route-id="@question.Id" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                onclick="return confirm('Frage wirklich löschen?')">Löschen</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </div>
+}
+
+@if (!Model.Any())
+{
+    <div class="text-muted">Noch keine Fragen vorhanden.</div>
+}
+
+<!-- AI Feedback Modal -->
+<div class="modal fade" id="aiModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">KI-Qualitätsprüfung</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="aiModalBody">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Wird geladen...</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        async function checkQuestion(id) {
+            const modal = new bootstrap.Modal(document.getElementById('aiModal'));
+            const body = document.getElementById('aiModalBody');
+            body.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Wird geladen...</span></div>';
+            modal.show();
+
+            try {
+                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+                const response = await fetch(`/MCQuestion/CheckQuestion/${id}`, {
+                    method: 'POST',
+                    headers: { 'RequestVerificationToken': token }
+                });
+                const data = await response.json();
+                body.innerText = data.feedback;
+            } catch {
+                body.innerText = 'Fehler bei der Anfrage.';
+            }
+        }
+    </script>
+}

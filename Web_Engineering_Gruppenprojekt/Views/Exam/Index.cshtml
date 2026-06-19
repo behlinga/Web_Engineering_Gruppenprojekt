@@ -1,0 +1,57 @@
+@model IEnumerable<Web_Engineering_Gruppenprojekt.Models.Exam>
+@{
+    var course = ViewBag.Course as Web_Engineering_Gruppenprojekt.Models.Course;
+    var questionCounts = ViewBag.QuestionCounts as Dictionary<int, int> ?? new Dictionary<int, int>();
+    ViewData["Title"] = $"Prüfungen – {course?.Title}";
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Course" asp-action="Index">Lehrveranstaltungen</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Chapter" asp-action="Index" asp-route-courseId="@course?.Id">@course?.Title</a></li>
+        <li class="breadcrumb-item active">Prüfungen</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Prüfungen – @course?.Title</h2>
+    <a asp-action="Create" asp-route-courseId="@course?.Id" class="btn btn-primary">+ Neue Prüfung erstellen</a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="text-muted">Noch keine Prüfungen vorhanden.</div>
+}
+else
+{
+    <table class="table table-hover">
+        <thead class="table-light">
+        <tr>
+            <th>Datum</th>
+            <th>Fragen</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var exam in Model)
+        {
+            <tr>
+                <td>@exam.Date.ToString("dd.MM.yyyy")</td>
+                <td>
+                    <span class="badge bg-secondary">
+                        @(questionCounts.TryGetValue(exam.Id, out var qc) ? qc : 0) Fragen
+                    </span>
+                </td>
+                <td class="text-end">
+                    <a asp-action="Print" asp-route-id="@exam.Id" class="btn btn-sm btn-outline-primary" target="_blank">Drucken</a>
+                    <form asp-action="Delete" asp-route-id="@exam.Id" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                onclick="return confirm('Prüfung wirklich löschen?')">Löschen</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

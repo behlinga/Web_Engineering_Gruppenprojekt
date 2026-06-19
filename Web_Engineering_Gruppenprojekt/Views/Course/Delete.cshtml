@@ -1,0 +1,29 @@
+@model Web_Engineering_Gruppenprojekt.Models.Course
+@{
+    ViewData["Title"] = "Lehrveranstaltung löschen";
+}
+
+<h2>Lehrveranstaltung löschen</h2>
+
+<div class="alert alert-warning">
+    Soll diese Lehrveranstaltung wirklich gelöscht werden? Alle zugehörigen Kapitel, Fragen und Prüfungen werden ebenfalls gelöscht.
+</div>
+
+<dl class="row">
+    <dt class="col-sm-3">Titel</dt>
+    <dd class="col-sm-9">@Model.Title</dd>
+
+    <dt class="col-sm-3">Dozent/in</dt>
+    <dd class="col-sm-9">@Model.LecturerName</dd>
+
+    <dt class="col-sm-3">Niveau</dt>
+    <dd class="col-sm-9">@Model.Level</dd>
+</dl>
+
+<form asp-action="Delete">
+    <input type="hidden" asp-for="Id" />
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger">Löschen</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Abbrechen</a>
+    </div>
+</form>

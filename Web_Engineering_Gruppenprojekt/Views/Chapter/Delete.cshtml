@@ -1,0 +1,40 @@
+@model Web_Engineering_Gruppenprojekt.Models.Chapter
+@{
+    ViewData["Title"] = "Kapitel löschen";
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Course" asp-action="Index">Lehrveranstaltungen</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index" asp-route-courseId="@Model.CourseId">Kapitel</a></li>
+        <li class="breadcrumb-item active">Löschen</li>
+    </ol>
+</nav>
+
+<h2>Kapitel löschen</h2>
+
+<div class="alert alert-warning">
+    Soll dieses Kapitel wirklich gelöscht werden? Alle zugehörigen Fragen und Antwortoptionen werden ebenfalls gelöscht.
+</div>
+
+<dl class="row">
+    <dt class="col-sm-3">Nummer</dt>
+    <dd class="col-sm-9">@Model.ChapterNumber</dd>
+
+    <dt class="col-sm-3">Titel</dt>
+    <dd class="col-sm-9">@Model.Title</dd>
+
+    @if (!string.IsNullOrEmpty(Model.SlideFileName))
+    {
+        <dt class="col-sm-3">Folien</dt>
+        <dd class="col-sm-9">@Model.SlideFileName</dd>
+    }
+</dl>
+
+<form asp-action="Delete">
+    <input type="hidden" asp-for="Id" />
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger">Löschen</button>
+        <a asp-action="Index" asp-route-courseId="@Model.CourseId" class="btn btn-outline-secondary">Abbrechen</a>
+    </div>
+</form>
