@@ -6,8 +6,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
 
+// Database provider is configurable: "Sqlite" (default, local dev) or "SqlServer" (Azure SQL).
+var dbProvider = builder.Configuration["Database:Provider"] ?? "Sqlite";
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (dbProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
+        options.UseSqlServer(connectionString);
+    else
+        options.UseSqlite(connectionString);
+});
 
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 
@@ -19,12 +27,16 @@ else
 
 var app = builder.Build();
 
-// Auto-apply migrations in development
-if (app.Environment.IsDevelopment())
+// Initialize the database on startup.
+// SQLite (local): apply EF migrations. SQL Server (Azure): create schema and seed
+// data directly from the model via EnsureCreated (no SQL-Server-specific migrations needed).
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    if (dbProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
+        db.Database.EnsureCreated();
+    else
+        db.Database.Migrate();
 }
 
 if (!app.Environment.IsDevelopment())
