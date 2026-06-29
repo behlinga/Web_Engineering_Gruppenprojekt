@@ -102,6 +102,7 @@ public class ChapterController(AppDbContext db, IFileStorageService fileStorage)
     {
         var chapter = await db.Chapters.Include(c => c.Course).FirstOrDefaultAsync(c => c.Id == id);
         if (chapter == null) return NotFound();
+        ViewBag.QuestionCount = await db.Questions.CountAsync(q => q.ChapterId == id);
         return View(chapter);
     }
 

@@ -6,7 +6,12 @@
 <h2>Lehrveranstaltung löschen</h2>
 
 <div class="alert alert-warning">
-    Soll diese Lehrveranstaltung wirklich gelöscht werden? Alle zugehörigen Kapitel, Fragen und Prüfungen werden ebenfalls gelöscht.
+    Soll diese Lehrveranstaltung wirklich gelöscht werden? Folgende Daten werden ebenfalls unwiderruflich gelöscht:
+    <ul class="mb-0 mt-1">
+        <li><strong>@Model.Chapters.Count Kapitel</strong></li>
+        <li><strong>@(ViewBag.QuestionCount) Frage(n)</strong></li>
+        <li><strong>@Model.Exams.Count Prüfung(en)</strong></li>
+    </ul>
 </div>
 
 <dl class="row">

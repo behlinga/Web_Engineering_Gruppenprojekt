@@ -142,6 +142,48 @@ Azure SQL (Cloud), Azure Blob Storage für Datei-Uploads, Google Gemini als LLM.
 
 ---
 
+## Prompt 9 – Bugfixes, fehlende Features und Qualitätsverbesserungen
+
+> Teste die App systematisch gegen das Lastenheft und behebe alle gefundenen Abweichungen:
+>
+> 1. **Bug: Löschen von Fragen schlägt fehl**, wenn die Frage einer Prüfung zugeordnet ist.
+>    Ursache: `DeleteBehavior.Restrict` auf `ExamQuestion → MCQuestion`. Fix: In der
+>    `Delete`-Action die `ExamQuestions` per `Include` mitladen und vor dem Löschen der
+>    Frage explizit mit `RemoveRange` entfernen.
+>
+> 2. **Fehlende Funktion: Fragen manuell anlegen.** Das Lastenheft fordert CRUD für Fragen.
+>    Ergänze `Create` (GET + POST) im `MCQuestionController` und eine eigene View
+>    `MCQuestion/Create.cshtml` (analog zur Edit-View, mit Breadcrumb und 4 Optionen per
+>    Radio-Control). Füge in der Fragenliste einen „+ Frage manuell"-Button hinzu.
+>
+> 3. **Sicherheit: `[ValidateAntiForgeryToken]` für `CheckQuestion`-Endpoint** fehlte. Füge
+>    das Attribut hinzu und sende das CSRF-Token im AJAX-Fetch als `FormData`-Body statt als
+>    Header (da ASP.NET den Token standardmäßig im Request-Body erwartet).
+>
+> 4. **Druckansicht: Lösungsblatt für Korrektoren.** Ergänze in `ExamController.Print` einen
+>    optionalen Parameter `bool showAnswers = false`. In `Print.cshtml` werden bei
+>    `showAnswers=true` die korrekten Antworten grün markiert (`.correct-answer`) und mit
+>    Häkchen versehen; ein Umschalter-Button wechselt zwischen Studenten- und
+>    Korrektorenversion.
+>
+> 5. **UX: Erfolgsmeldung nach KI-Fragen-Generierung.** Setze `TempData["Success"]` wenn
+>    `GenerateQuestionAsync` erfolgreich war; zeige den Alert in der Fragenliste an.
+>
+> 6. **UX: Kaskadierungs-Info auf Delete-Seiten.** Beim Löschen einer Lehrveranstaltung die
+>    Anzahl betroffener Kapitel, Fragen und Prüfungen anzeigen; beim Löschen eines Kapitels
+>    die Anzahl betroffener Fragen. Dazu je eine zusätzliche DB-Abfrage im Controller und
+>    `ViewBag`-Übergabe an die View.
+>
+> 7. **Prüfungsliste: Datum als Link auf Druckansicht.** Das Lastenheft schreibt vor, dass
+>    „jeder Eintrag ein Link auf die druckbare Liste" ist. Das Datum-`<td>` in
+>    `Exam/Index.cshtml` muss als `<a asp-action="Print">` formatiert sein.
+>
+> 8. **Code-Qualität: `Random.Shared.Shuffle` statt `OrderBy(_ => Guid.NewGuid())`.** Das
+>    Guid-Shuffle ist kein zuverlässiges Zufallsverfahren. Konvertiere die Liste in ein Array
+>    und nutze `Random.Shared.Shuffle(arr)` (verfügbar ab .NET 8).
+
+---
+
 ## Beispiel für einen Zusammenfassungs-Prompt (Meta-Technik)
 
 > Fasse die letzten Schritte, mit denen wir die Fragen- und Prüfungsverwaltung implementiert

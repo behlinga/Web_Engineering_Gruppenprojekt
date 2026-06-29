@@ -60,6 +60,7 @@ public class CourseController(AppDbContext db) : Controller
             .Include(c => c.Exams)
             .FirstOrDefaultAsync(c => c.Id == id);
         if (course == null) return NotFound();
+        ViewBag.QuestionCount = await db.Questions.CountAsync(q => q.Chapter.CourseId == id);
         return View(course);
     }
 

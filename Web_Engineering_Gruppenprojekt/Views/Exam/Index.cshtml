@@ -36,7 +36,11 @@ else
         @foreach (var exam in Model)
         {
             <tr>
-                <td>@exam.Date.ToString("dd.MM.yyyy")</td>
+                <td>
+                    <a asp-action="Print" asp-route-id="@exam.Id" class="text-decoration-none fw-bold" target="_blank">
+                        @exam.Date.ToString("dd.MM.yyyy")
+                    </a>
+                </td>
                 <td>
                     <span class="badge bg-secondary">
                         @(questionCounts.TryGetValue(exam.Id, out var qc) ? qc : 0) Fragen

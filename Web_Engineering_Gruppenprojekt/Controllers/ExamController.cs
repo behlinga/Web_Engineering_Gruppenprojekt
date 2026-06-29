@@ -68,10 +68,9 @@ public class ExamController(AppDbContext db) : Controller
             .Select(q => q.Id)
             .ToListAsync();
 
-        var selected = allQuestions
-            .OrderBy(_ => Guid.NewGuid())
-            .Take(vm.NumberOfQuestions)
-            .ToList();
+        var arr = allQuestions.ToArray();
+        Random.Shared.Shuffle(arr);
+        var selected = arr.Take(vm.NumberOfQuestions).ToList();
 
         var exam = new Exam
         {
@@ -85,7 +84,7 @@ public class ExamController(AppDbContext db) : Controller
         return RedirectToAction(nameof(Index), new { courseId = vm.CourseId });
     }
 
-    public async Task<IActionResult> Print(int id)
+    public async Task<IActionResult> Print(int id, bool showAnswers = false)
     {
         var exam = await db.Exams
             .Include(e => e.Course)
@@ -95,6 +94,7 @@ public class ExamController(AppDbContext db) : Controller
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (exam == null) return NotFound();
+        ViewBag.ShowAnswers = showAnswers;
         return View(exam);
     }
 

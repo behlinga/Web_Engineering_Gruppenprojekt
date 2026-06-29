@@ -15,6 +15,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2>@chapter?.Title – Fragen</h2>
     <div class="d-flex gap-2">
+        <a asp-action="Create" asp-route-chapterId="@chapter?.Id" class="btn btn-primary">+ Frage manuell</a>
         @if (!string.IsNullOrEmpty(chapter?.SlidePath))
         {
             <form asp-action="GenerateQuestion" asp-route-chapterId="@chapter.Id" method="post">
@@ -29,6 +30,10 @@
     </div>
 </div>
 
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success">@TempData["Success"]</div>
+}
 @if (TempData["Error"] != null)
 {
     <div class="alert alert-danger">@TempData["Error"]</div>
@@ -103,9 +108,11 @@
 
             try {
                 const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+                const body = new FormData();
+                body.append('__RequestVerificationToken', token);
                 const response = await fetch(`/MCQuestion/CheckQuestion/${id}`, {
                     method: 'POST',
-                    headers: { 'RequestVerificationToken': token }
+                    body
                 });
                 const data = await response.json();
                 body.innerText = data.feedback;
