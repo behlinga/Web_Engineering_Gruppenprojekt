@@ -20,7 +20,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 
 if (builder.Environment.IsProduction() &&
-    !string.IsNullOrEmpty(builder.Configuration["AzureBlobStorage:ConnectionString"]))
+    !string.IsNullOrEmpty(builder.Configuration.GetConnectionString("AzureBlobStorage")))
     builder.Services.AddScoped<IFileStorageService, AzureBlobStorageService>();
 else
     builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();

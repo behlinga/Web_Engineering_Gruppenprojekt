@@ -6,7 +6,7 @@ public class AzureBlobStorageService(IConfiguration config) : IFileStorageServic
 {
     private BlobContainerClient GetContainer()
     {
-        var connStr = config["AzureBlobStorage:ConnectionString"]!;
+        var connStr = config.GetConnectionString("AzureBlobStorage")!;
         var container = config["AzureBlobStorage:ContainerName"] ?? "slides";
         return new BlobContainerClient(connStr, container);
     }
