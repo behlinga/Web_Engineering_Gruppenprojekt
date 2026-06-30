@@ -35,6 +35,7 @@ public class ChapterController(AppDbContext db, IFileStorageService fileStorage)
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(Chapter chapter, IFormFile? slideFile)
     {
+        ModelState.Remove(nameof(Chapter.Course));
         if (slideFile != null && slideFile.Length > 0)
         {
             var (fileName, path) = await fileStorage.UploadAsync(slideFile);
@@ -64,6 +65,7 @@ public class ChapterController(AppDbContext db, IFileStorageService fileStorage)
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, Chapter chapter, IFormFile? slideFile, bool deleteFile = false)
     {
+        ModelState.Remove(nameof(Chapter.Course));
         if (id != chapter.Id) return BadRequest();
 
         var existing = await db.Chapters.FindAsync(id);
