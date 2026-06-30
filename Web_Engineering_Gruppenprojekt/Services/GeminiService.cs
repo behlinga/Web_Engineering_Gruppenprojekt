@@ -8,7 +8,7 @@ namespace Web_Engineering_Gruppenprojekt.Services;
 
 public class GeminiService(IConfiguration config, AppDbContext db, IWebHostEnvironment env, HttpClient http) : IGeminiService
 {
-    private const string BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+    private const string BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
     public async Task<MCQuestion?> GenerateQuestionAsync(string pdfPath, int chapterId)
     {
