@@ -37,7 +37,7 @@
                 <a href="@Url.Action("Print", new { id = Model.Id, showAnswers = true })" class="btn btn-outline-success">Lösungsblatt</a>
             }
             <button onclick="window.print()" class="btn btn-primary">Drucken</button>
-            <a href="javascript:history.back()" class="btn btn-outline-secondary">Zurück</a>
+            <a href="@Url.Action("Index", "Exam", new { courseId = Model.CourseId })" class="btn btn-outline-secondary">Zurück</a>
         </div>
     </div>
 
@@ -45,7 +45,7 @@
 
     @if (!showAnswers)
     {
-        <table class="table w-100 mb-3 no-print">
+        <table class="table w-100 mb-3">
             <tr>
                 <td><strong>Name:</strong> _________________________________</td>
                 <td><strong>Matrikelnummer:</strong> ___________________</td>

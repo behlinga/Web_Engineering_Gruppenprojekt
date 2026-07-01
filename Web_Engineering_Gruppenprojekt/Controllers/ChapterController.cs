@@ -111,11 +111,15 @@ public class ChapterController(AppDbContext db, IFileStorageService fileStorage)
     [HttpPost, ActionName("Delete"), ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
-        var chapter = await db.Chapters.FindAsync(id);
+        var chapter = await db.Chapters
+            .Include(c => c.Questions).ThenInclude(q => q.ExamQuestions)
+            .FirstOrDefaultAsync(c => c.Id == id);
         if (chapter != null)
         {
             if (!string.IsNullOrEmpty(chapter.SlidePath))
                 await fileStorage.DeleteAsync(chapter.SlidePath);
+
+            db.ExamQuestions.RemoveRange(chapter.Questions.SelectMany(q => q.ExamQuestions));
 
             var courseId = chapter.CourseId;
             db.Chapters.Remove(chapter);

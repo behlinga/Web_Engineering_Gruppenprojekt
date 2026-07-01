@@ -17,7 +17,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(connectionString);
 });
 
-builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+builder.Services.AddHttpClient<IGeminiService, GeminiService>()
+    .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30));
 
 if (builder.Environment.IsProduction() &&
     !string.IsNullOrEmpty(builder.Configuration.GetConnectionString("AzureBlobStorage")))

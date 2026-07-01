@@ -6,7 +6,7 @@ using Web_Engineering_Gruppenprojekt.Models;
 
 namespace Web_Engineering_Gruppenprojekt.Services;
 
-public class GeminiService(IConfiguration config, AppDbContext db, IWebHostEnvironment env, HttpClient http) : IGeminiService
+public class GeminiService(IConfiguration config, AppDbContext db, IFileStorageService fileStorage, HttpClient http) : IGeminiService
 {
     private const string BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -19,13 +19,9 @@ public class GeminiService(IConfiguration config, AppDbContext db, IWebHostEnvir
 
         if (!string.IsNullOrEmpty(pdfPath))
         {
-            var fullPath = pdfPath.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                ? null
-                : Path.Combine(env.WebRootPath, pdfPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-
-            if (fullPath != null && File.Exists(fullPath))
+            var pdfBytes = await fileStorage.DownloadAsync(pdfPath);
+            if (pdfBytes != null)
             {
-                var pdfBytes = await File.ReadAllBytesAsync(fullPath);
                 parts.Add(new
                 {
                     inline_data = new

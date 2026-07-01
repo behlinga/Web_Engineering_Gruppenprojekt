@@ -70,6 +70,11 @@ public class CourseController(AppDbContext db) : Controller
         var course = await db.Courses.FindAsync(id);
         if (course != null)
         {
+            var examQuestions = await db.ExamQuestions
+                .Where(eq => eq.Question.Chapter.CourseId == id)
+                .ToListAsync();
+            db.ExamQuestions.RemoveRange(examQuestions);
+
             db.Courses.Remove(course);
             await db.SaveChangesAsync();
         }

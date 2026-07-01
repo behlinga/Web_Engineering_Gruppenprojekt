@@ -24,5 +24,11 @@ public class LocalFileStorageService(IWebHostEnvironment env) : IFileStorageServ
         return Task.CompletedTask;
     }
 
+    public async Task<byte[]?> DownloadAsync(string filePath)
+    {
+        var fullPath = Path.Combine(env.WebRootPath, filePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+        return File.Exists(fullPath) ? await File.ReadAllBytesAsync(fullPath) : null;
+    }
+
     public string GetUrl(string filePath) => filePath;
 }
