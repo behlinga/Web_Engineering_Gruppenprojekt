@@ -255,6 +255,39 @@ Azure SQL (Cloud), Azure Blob Storage für Datei-Uploads, Google Gemini als LLM.
 
 ---
 
+## Prompt 11 – Cold-Start-Robustheit und weniger repetitive KI-Fragen
+
+> Behebe drei Punkte, ohne bestehende Funktionalität (KI-Prüfung, Blob-Upload,
+> Prüfungserstellung) zu verändern:
+>
+> 1. **Bug: Intermittierende Fehlerseiten beim ersten Request (Cold Start).** Nach
+>    Inaktivität wirft der erste Request eine Fehlerseite, weil die Azure-SQL-Verbindung
+>    beim Cold Start noch nicht steht. Fix: Im SqlServer-Zweig von
+>    `AddDbContext<AppDbContext>` Connection Resiliency aktivieren
+>    (`options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(...))`, der
+>    Sqlite-Zweig bleibt unverändert). Zusätzlich den DB-Init-Block (`EnsureCreated`/
+>    `Migrate`) mit einer kleinen Retry-Schleife (3 Versuche, kurzer Delay) umschließen,
+>    damit ein fehlgeschlagener erster Verbindungsaufbau die App nicht crasht. Als Kommentar
+>    ergänzen, dass zusätzlich „Always On“ im App Service aktiviert werden sollte (kann nicht
+>    per Code gesetzt werden).
+>
+> 2. **Verifikation: Hero-Button auf der Startseite.** Prüfe, ob der Button „Zu den
+>    Lehrveranstaltungen“ ein sauberer Link ohne dazwischenfunkenden JS-Handler ist. Ergebnis:
+>    `wwwroot/js/site.js` ist leer, kein `addEventListener`/`preventDefault` im Projekt – der
+>    `<a asp-controller="Course" asp-action="Index">` löst korrekt auf, keine Änderung nötig.
+>
+> 3. **Problem: KI generiert fast identische Fragen.** `GenerateQuestionAsync` bekommt nur
+>    das PDF und den Auftrag „Erstelle eine Frage“ – ohne Kenntnis existierender Fragen, was
+>    bei kurzen PDFs zu Wiederholungen führt. Fix: Vor dem Prompt-Aufbau die vorhandenen
+>    Fragen des Kapitels laden (`db.Questions.Where(q => q.ChapterId == chapterId)
+>    .Select(q => q.QuestionText).ToListAsync()`) und als Liste in den Prompt einbetten, mit
+>    der expliziten Anweisung, ein anderes Thema/einen anderen Aspekt zu wählen und keine der
+>    vorhandenen Fragen zu wiederholen (mit Fallback-Hinweis, falls noch keine existieren).
+>    Zusätzlich `generationConfig = { temperature = 1.0 }` im `requestBody` ergänzen, um die
+>    Varianz zu erhöhen. JSON-Antwortformat und Parse-Logik bleiben unverändert.
+
+---
+
 ## Beispiel für einen Zusammenfassungs-Prompt (Meta-Technik)
 
 > Fasse die letzten Schritte, mit denen wir die Fragen- und Prüfungsverwaltung implementiert

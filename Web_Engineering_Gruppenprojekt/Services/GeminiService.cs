@@ -33,10 +33,26 @@ public class GeminiService(IConfiguration config, AppDbContext db, IFileStorageS
             }
         }
 
+        var existingQuestions = await db.Questions
+            .Where(q => q.ChapterId == chapterId)
+            .Select(q => q.QuestionText)
+            .ToListAsync();
+
+        var existingQuestionsText = existingQuestions.Count > 0
+            ? string.Join("\n", existingQuestions.Select(q => $"- {q}"))
+            : "(Keine vorhandenen Fragen zu diesem Kapitel.)";
+
         parts.Add(new
         {
             text = """
                    Erstelle eine Multiple-Choice-Frage basierend auf dem Inhalt des bereitgestellten PDFs.
+
+                   Zu diesem Kapitel existieren bereits folgende Fragen:
+                   {{existingQuestions}}
+
+                   Wähle für die neue Frage explizit ein anderes Thema bzw. einen anderen Aspekt des Inhalts
+                   und wiederhole keine der oben aufgeführten Fragen, auch nicht sinngemäß oder umformuliert.
+
                    Antworte ausschließlich im folgenden JSON-Format, ohne weitere Erklärungen:
                    {
                      "question": "Die Frage",
@@ -44,10 +60,14 @@ public class GeminiService(IConfiguration config, AppDbContext db, IFileStorageS
                      "correct": 0
                    }
                    "correct" ist der 0-basierte Index der richtigen Antwort.
-                   """
+                   """.Replace("{{existingQuestions}}", existingQuestionsText)
         });
 
-        var requestBody = new { contents = new[] { new { parts = parts.ToArray() } } };
+        var requestBody = new
+        {
+            contents = new[] { new { parts = parts.ToArray() } },
+            generationConfig = new { temperature = 1.0 }
+        };
         var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}?key={apiKey}");
         request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
