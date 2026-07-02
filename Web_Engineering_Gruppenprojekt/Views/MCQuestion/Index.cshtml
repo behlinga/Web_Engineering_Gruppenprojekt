@@ -32,11 +32,11 @@
 
 @if (TempData["Success"] != null)
 {
-    <div class="alert alert-success">@TempData["Success"]</div>
+    <div class="alert alert-success fade show" role="alert">@TempData["Success"]</div>
 }
 @if (TempData["Error"] != null)
 {
-    <div class="alert alert-danger">@TempData["Error"]</div>
+    <div class="alert alert-danger fade show" role="alert">@TempData["Error"]</div>
 }
 
 @foreach (var question in Model)
@@ -100,7 +100,36 @@
 
 @section Scripts {
     <script>
+        const alertFadeDelayMs = 5000;
+
+        function hideAlert(alert, immediate = false) {
+            if (!alert) {
+                return;
+            }
+
+            if (immediate) {
+                alert.hidden = true;
+                return;
+            }
+
+            alert.classList.remove('show');
+            setTimeout(() => alert.hidden = true, 200);
+        }
+
+        function hidePageAlerts(immediate = false) {
+            document
+                .querySelectorAll('.alert-success, .alert-danger')
+                .forEach(alert => hideAlert(alert, immediate));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document
+                .querySelectorAll('.alert-success')
+                .forEach(alert => setTimeout(() => hideAlert(alert), alertFadeDelayMs));
+        });
+
         function startGenerateQuestion(form) {
+            hidePageAlerts(true);
             const button = form.querySelector('button[type="submit"]');
             button.disabled = true;
             button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Wird generiert...';

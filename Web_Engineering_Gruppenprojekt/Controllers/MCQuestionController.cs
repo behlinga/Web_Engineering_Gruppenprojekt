@@ -142,7 +142,17 @@ public class MCQuestionController(AppDbContext db, IGeminiService gemini) : Cont
         var chapter = await db.Chapters.FindAsync(chapterId);
         if (chapter == null) return NotFound();
 
-        var question = await gemini.GenerateQuestionAsync(chapter.SlidePath ?? "", chapterId);
+        MCQuestion? question;
+        try
+        {
+            question = await gemini.GenerateQuestionAsync(chapter.SlidePath ?? "", chapterId);
+        }
+        catch (GeminiRateLimitException)
+        {
+            TempData["Error"] = GeminiRateLimitException.UserMessage;
+            return RedirectToAction(nameof(Index), new { chapterId });
+        }
+
         if (question == null)
             TempData["Error"] = "Frage konnte nicht generiert werden. Bitte API-Schlüssel prüfen.";
         else

@@ -1,14 +1,35 @@
 using System.Text;
 using System.Text.Json;
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Web_Engineering_Gruppenprojekt.Data;
 using Web_Engineering_Gruppenprojekt.Models;
 
 namespace Web_Engineering_Gruppenprojekt.Services;
 
+public class GeminiRateLimitException : Exception
+{
+    public const string UserMessage = "Limit der Gemini API erreicht. Tageslimits werden voraussichtlich gegen 09:15 Uhr deutscher Zeit zurückgesetzt. Bitte später erneut versuchen.";
+
+    public GeminiRateLimitException() : base(UserMessage)
+    {
+    }
+}
+
 public class GeminiService(IConfiguration config, AppDbContext db, IFileStorageService fileStorage, HttpClient http) : IGeminiService
 {
     private const string BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+    private static readonly string[] RateLimitErrorTerms =
+    [
+        "429",
+        "RESOURCE_EXHAUSTED",
+        "quota",
+        "quota exceeded",
+        "rate limit",
+        "rate_limit",
+        "too many requests",
+        "limit exceeded"
+    ];
 
     public async Task<MCQuestion?> GenerateQuestionAsync(string pdfPath, int chapterId)
     {
@@ -66,13 +87,33 @@ public class GeminiService(IConfiguration config, AppDbContext db, IFileStorageS
         var requestBody = new
         {
             contents = new[] { new { parts = parts.ToArray() } },
-            generationConfig = new { temperature = 1.0 }
+            generationConfig = new { temperature = 0.3 }
         };
         var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}?key={apiKey}");
         request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-        var response = await http.SendAsync(request);
-        if (!response.IsSuccessStatusCode) return null;
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.SendAsync(request);
+        }
+        catch (HttpRequestException ex) when (IsRateLimitError(ex))
+        {
+            throw new GeminiRateLimitException();
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await ReadResponseBodyAsync(response);
+            if (IsRateLimitError(response, errorBody))
+                throw new GeminiRateLimitException();
+
+            return null;
+        }
 
         var json = await response.Content.ReadAsStringAsync();
         var rawText = ExtractText(json);
@@ -134,14 +175,68 @@ public class GeminiService(IConfiguration config, AppDbContext db, IFileStorageS
                       {optionsText}
                       """;
 
-        var requestBody = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
+        var requestBody = new
+        {
+            contents = new[] { new { parts = new[] { new { text = prompt } } } },
+            generationConfig = new { temperature = 0.0 }
+        };
         var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}?key={apiKey}");
         request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-        var response = await http.SendAsync(request);
-        if (!response.IsSuccessStatusCode) return "Fehler bei der KI-Anfrage.";
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.SendAsync(request);
+        }
+        catch (HttpRequestException ex) when (IsRateLimitError(ex))
+        {
+            return GeminiRateLimitException.UserMessage;
+        }
+        catch
+        {
+            return "Fehler bei der KI-Anfrage.";
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await ReadResponseBodyAsync(response);
+            if (IsRateLimitError(response, errorBody))
+                return GeminiRateLimitException.UserMessage;
+
+            return "Fehler bei der KI-Anfrage.";
+        }
 
         return ExtractText(await response.Content.ReadAsStringAsync());
+    }
+
+    private static async Task<string> ReadResponseBodyAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            return await response.Content.ReadAsStringAsync();
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private static bool IsRateLimitError(HttpResponseMessage response, string responseBody)
+    {
+        return response.StatusCode == HttpStatusCode.TooManyRequests || IsRateLimitError(responseBody);
+    }
+
+    private static bool IsRateLimitError(HttpRequestException exception)
+    {
+        return exception.StatusCode == HttpStatusCode.TooManyRequests || IsRateLimitError(exception.Message);
+    }
+
+    private static bool IsRateLimitError(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        return RateLimitErrorTerms.Any(term => text.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string ExtractText(string json)
