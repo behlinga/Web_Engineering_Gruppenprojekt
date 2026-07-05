@@ -67,41 +67,46 @@ public class CourseController(AppDbContext db) : Controller
     [HttpPost, ActionName("Delete"), ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync();
+        var strategy = db.Database.CreateExecutionStrategy();
 
-        var courseExists = await db.Courses.AnyAsync(c => c.Id == id);
-        if (!courseExists)
-            return RedirectToAction(nameof(Index));
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync();
 
-        await db.ExamQuestions
-            .Where(eq => eq.Exam.CourseId == id)
-            .ExecuteDeleteAsync();
+            var courseExists = await db.Courses.AnyAsync(c => c.Id == id);
+            if (!courseExists)
+                return;
 
-        await db.ExamQuestions
-            .Where(eq => eq.Question.Chapter.CourseId == id)
-            .ExecuteDeleteAsync();
+            await db.ExamQuestions
+                .Where(eq => eq.Exam.CourseId == id)
+                .ExecuteDeleteAsync();
 
-        await db.AnswerOptions
-            .Where(a => a.Question.Chapter.CourseId == id)
-            .ExecuteDeleteAsync();
+            await db.ExamQuestions
+                .Where(eq => eq.Question.Chapter.CourseId == id)
+                .ExecuteDeleteAsync();
 
-        await db.Questions
-            .Where(q => q.Chapter.CourseId == id)
-            .ExecuteDeleteAsync();
+            await db.AnswerOptions
+                .Where(a => a.Question.Chapter.CourseId == id)
+                .ExecuteDeleteAsync();
 
-        await db.Exams
-            .Where(e => e.CourseId == id)
-            .ExecuteDeleteAsync();
+            await db.Questions
+                .Where(q => q.Chapter.CourseId == id)
+                .ExecuteDeleteAsync();
 
-        await db.Chapters
-            .Where(c => c.CourseId == id)
-            .ExecuteDeleteAsync();
+            await db.Exams
+                .Where(e => e.CourseId == id)
+                .ExecuteDeleteAsync();
 
-        await db.Courses
-            .Where(c => c.Id == id)
-            .ExecuteDeleteAsync();
+            await db.Chapters
+                .Where(c => c.CourseId == id)
+                .ExecuteDeleteAsync();
 
-        await transaction.CommitAsync();
+            await db.Courses
+                .Where(c => c.Id == id)
+                .ExecuteDeleteAsync();
+
+            await transaction.CommitAsync();
+        });
 
         return RedirectToAction(nameof(Index));
     }
