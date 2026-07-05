@@ -36,18 +36,22 @@ else
         @foreach (var exam in Model)
         {
             <tr>
-                <td>@exam.Date.ToString("dd.MM.yyyy")</td>
                 <td>
-                    <span class="badge bg-secondary">
+                    <a asp-action="Print" asp-route-id="@exam.Id" class="text-decoration-none fw-bold">
+                        @exam.Date.ToString("dd.MM.yyyy")
+                    </a>
+                </td>
+                <td>
+                    <a asp-action="Print" asp-route-id="@exam.Id" class="badge bg-secondary text-decoration-none">
                         @(questionCounts.TryGetValue(exam.Id, out var qc) ? qc : 0) Fragen
-                    </span>
+                    </a>
                 </td>
                 <td class="text-end">
-                    <a asp-action="Print" asp-route-id="@exam.Id" class="btn btn-sm btn-outline-primary" target="_blank">Drucken</a>
+                    <a asp-action="Print" asp-route-id="@exam.Id" class="btn btn-sm btn-outline-primary">Drucken</a>
                     <form asp-action="Delete" asp-route-id="@exam.Id" method="post" class="d-inline">
                         @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-sm btn-outline-danger"
-                                onclick="return confirm('Prüfung wirklich löschen?')">Löschen</button>
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Löschen"
+                                onclick="return confirm('Prüfung wirklich löschen?')"><i class="bi bi-trash"></i></button>
                     </form>
                 </td>
             </tr>

@@ -15,9 +15,10 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2>@chapter?.Title – Fragen</h2>
     <div class="d-flex gap-2">
+        <a asp-action="Create" asp-route-chapterId="@chapter?.Id" class="btn btn-primary">+ Frage manuell</a>
         @if (!string.IsNullOrEmpty(chapter?.SlidePath))
         {
-            <form asp-action="GenerateQuestion" asp-route-chapterId="@chapter.Id" method="post">
+            <form asp-action="GenerateQuestion" asp-route-chapterId="@chapter.Id" method="post" onsubmit="return startGenerateQuestion(this)">
                 @Html.AntiForgeryToken()
                 <button type="submit" class="btn btn-success">+ KI-Frage generieren</button>
             </form>
@@ -29,9 +30,13 @@
     </div>
 </div>
 
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success fade show" role="alert">@TempData["Success"]</div>
+}
 @if (TempData["Error"] != null)
 {
-    <div class="alert alert-danger">@TempData["Error"]</div>
+    <div class="alert alert-danger fade show" role="alert">@TempData["Error"]</div>
 }
 
 @foreach (var question in Model)
@@ -51,7 +56,7 @@
                     </li>
                 }
                 <li class="list-group-item d-flex gap-2 justify-content-end">
-                    <a asp-action="Edit" asp-route-id="@question.Id" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+                    <a asp-action="Edit" asp-route-id="@question.Id" class="btn btn-sm btn-outline-secondary" title="Bearbeiten"><i class="bi bi-pencil"></i></a>
                     <button type="button" class="btn btn-sm btn-outline-info"
                             data-question-id="@question.Id"
                             onclick="checkQuestion(@question.Id)">
@@ -59,8 +64,8 @@
                     </button>
                     <form asp-action="Delete" asp-route-id="@question.Id" method="post" class="d-inline">
                         @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-sm btn-outline-danger"
-                                onclick="return confirm('Frage wirklich löschen?')">Löschen</button>
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Löschen"
+                                onclick="return confirm('Frage wirklich löschen?')"><i class="bi bi-trash"></i></button>
                     </form>
                 </li>
             </ul>
@@ -95,6 +100,42 @@
 
 @section Scripts {
     <script>
+        const alertFadeDelayMs = 5000;
+
+        function hideAlert(alert, immediate = false) {
+            if (!alert) {
+                return;
+            }
+
+            if (immediate) {
+                alert.hidden = true;
+                return;
+            }
+
+            alert.classList.remove('show');
+            setTimeout(() => alert.hidden = true, 200);
+        }
+
+        function hidePageAlerts(immediate = false) {
+            document
+                .querySelectorAll('.alert-success, .alert-danger')
+                .forEach(alert => hideAlert(alert, immediate));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document
+                .querySelectorAll('.alert-success')
+                .forEach(alert => setTimeout(() => hideAlert(alert), alertFadeDelayMs));
+        });
+
+        function startGenerateQuestion(form) {
+            hidePageAlerts(true);
+            const button = form.querySelector('button[type="submit"]');
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Wird generiert...';
+            return true;
+        }
+
         async function checkQuestion(id) {
             const modal = new bootstrap.Modal(document.getElementById('aiModal'));
             const body = document.getElementById('aiModalBody');
@@ -103,9 +144,11 @@
 
             try {
                 const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+                const formData = new FormData();
+                formData.append('__RequestVerificationToken', token);
                 const response = await fetch(`/MCQuestion/CheckQuestion/${id}`, {
                     method: 'POST',
-                    headers: { 'RequestVerificationToken': token }
+                    body: formData
                 });
                 const data = await response.json();
                 body.innerText = data.feedback;

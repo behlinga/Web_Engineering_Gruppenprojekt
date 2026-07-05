@@ -1,14 +1,35 @@
 using System.Text;
 using System.Text.Json;
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Web_Engineering_Gruppenprojekt.Data;
 using Web_Engineering_Gruppenprojekt.Models;
 
 namespace Web_Engineering_Gruppenprojekt.Services;
 
-public class GeminiService(IConfiguration config, AppDbContext db, IWebHostEnvironment env, HttpClient http) : IGeminiService
+public class GeminiRateLimitException : Exception
 {
-    private const string BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+    public const string UserMessage = "Limit der Gemini API erreicht. Tageslimits werden voraussichtlich gegen 09:15 Uhr deutscher Zeit zurückgesetzt. Bitte später erneut versuchen.";
+
+    public GeminiRateLimitException() : base(UserMessage)
+    {
+    }
+}
+
+public class GeminiService(IConfiguration config, AppDbContext db, IFileStorageService fileStorage, HttpClient http) : IGeminiService
+{
+    private const string BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+    private static readonly string[] RateLimitErrorTerms =
+    [
+        "429",
+        "RESOURCE_EXHAUSTED",
+        "quota",
+        "quota exceeded",
+        "rate limit",
+        "rate_limit",
+        "too many requests",
+        "limit exceeded"
+    ];
 
     public async Task<MCQuestion?> GenerateQuestionAsync(string pdfPath, int chapterId)
     {
@@ -19,13 +40,9 @@ public class GeminiService(IConfiguration config, AppDbContext db, IWebHostEnvir
 
         if (!string.IsNullOrEmpty(pdfPath))
         {
-            var fullPath = pdfPath.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                ? null
-                : Path.Combine(env.WebRootPath, pdfPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-
-            if (fullPath != null && File.Exists(fullPath))
+            var pdfBytes = await fileStorage.DownloadAsync(pdfPath);
+            if (pdfBytes != null)
             {
-                var pdfBytes = await File.ReadAllBytesAsync(fullPath);
                 parts.Add(new
                 {
                     inline_data = new
@@ -37,10 +54,26 @@ public class GeminiService(IConfiguration config, AppDbContext db, IWebHostEnvir
             }
         }
 
+        var existingQuestions = await db.Questions
+            .Where(q => q.ChapterId == chapterId)
+            .Select(q => q.QuestionText)
+            .ToListAsync();
+
+        var existingQuestionsText = existingQuestions.Count > 0
+            ? string.Join("\n", existingQuestions.Select(q => $"- {q}"))
+            : "(Keine vorhandenen Fragen zu diesem Kapitel.)";
+
         parts.Add(new
         {
             text = """
                    Erstelle eine Multiple-Choice-Frage basierend auf dem Inhalt des bereitgestellten PDFs.
+
+                   Zu diesem Kapitel existieren bereits folgende Fragen:
+                   {{existingQuestions}}
+
+                   Wähle für die neue Frage explizit ein anderes Thema bzw. einen anderen Aspekt des Inhalts
+                   und wiederhole keine der oben aufgeführten Fragen, auch nicht sinngemäß oder umformuliert.
+
                    Antworte ausschließlich im folgenden JSON-Format, ohne weitere Erklärungen:
                    {
                      "question": "Die Frage",
@@ -48,15 +81,39 @@ public class GeminiService(IConfiguration config, AppDbContext db, IWebHostEnvir
                      "correct": 0
                    }
                    "correct" ist der 0-basierte Index der richtigen Antwort.
-                   """
+                   """.Replace("{{existingQuestions}}", existingQuestionsText)
         });
 
-        var requestBody = new { contents = new[] { new { parts = parts.ToArray() } } };
+        var requestBody = new
+        {
+            contents = new[] { new { parts = parts.ToArray() } },
+            generationConfig = new { temperature = 0.3 }
+        };
         var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}?key={apiKey}");
         request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-        var response = await http.SendAsync(request);
-        if (!response.IsSuccessStatusCode) return null;
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.SendAsync(request);
+        }
+        catch (HttpRequestException ex) when (IsRateLimitError(ex))
+        {
+            throw new GeminiRateLimitException();
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await ReadResponseBodyAsync(response);
+            if (IsRateLimitError(response, errorBody))
+                throw new GeminiRateLimitException();
+
+            return null;
+        }
 
         var json = await response.Content.ReadAsStringAsync();
         var rawText = ExtractText(json);
@@ -118,14 +175,68 @@ public class GeminiService(IConfiguration config, AppDbContext db, IWebHostEnvir
                       {optionsText}
                       """;
 
-        var requestBody = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
+        var requestBody = new
+        {
+            contents = new[] { new { parts = new[] { new { text = prompt } } } },
+            generationConfig = new { temperature = 0.0 }
+        };
         var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}?key={apiKey}");
         request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-        var response = await http.SendAsync(request);
-        if (!response.IsSuccessStatusCode) return "Fehler bei der KI-Anfrage.";
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.SendAsync(request);
+        }
+        catch (HttpRequestException ex) when (IsRateLimitError(ex))
+        {
+            return GeminiRateLimitException.UserMessage;
+        }
+        catch
+        {
+            return "Fehler bei der KI-Anfrage.";
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await ReadResponseBodyAsync(response);
+            if (IsRateLimitError(response, errorBody))
+                return GeminiRateLimitException.UserMessage;
+
+            return "Fehler bei der KI-Anfrage.";
+        }
 
         return ExtractText(await response.Content.ReadAsStringAsync());
+    }
+
+    private static async Task<string> ReadResponseBodyAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            return await response.Content.ReadAsStringAsync();
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private static bool IsRateLimitError(HttpResponseMessage response, string responseBody)
+    {
+        return response.StatusCode == HttpStatusCode.TooManyRequests || IsRateLimitError(responseBody);
+    }
+
+    private static bool IsRateLimitError(HttpRequestException exception)
+    {
+        return exception.StatusCode == HttpStatusCode.TooManyRequests || IsRateLimitError(exception.Message);
+    }
+
+    private static bool IsRateLimitError(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        return RateLimitErrorTerms.Any(term => text.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string ExtractText(string json)

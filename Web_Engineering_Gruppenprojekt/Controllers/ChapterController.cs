@@ -35,6 +35,7 @@ public class ChapterController(AppDbContext db, IFileStorageService fileStorage)
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(Chapter chapter, IFormFile? slideFile)
     {
+        ModelState.Remove(nameof(Chapter.Course));
         if (slideFile != null && slideFile.Length > 0)
         {
             var (fileName, path) = await fileStorage.UploadAsync(slideFile);
@@ -64,6 +65,7 @@ public class ChapterController(AppDbContext db, IFileStorageService fileStorage)
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, Chapter chapter, IFormFile? slideFile, bool deleteFile = false)
     {
+        ModelState.Remove(nameof(Chapter.Course));
         if (id != chapter.Id) return BadRequest();
 
         var existing = await db.Chapters.FindAsync(id);
@@ -102,17 +104,22 @@ public class ChapterController(AppDbContext db, IFileStorageService fileStorage)
     {
         var chapter = await db.Chapters.Include(c => c.Course).FirstOrDefaultAsync(c => c.Id == id);
         if (chapter == null) return NotFound();
+        ViewBag.QuestionCount = await db.Questions.CountAsync(q => q.ChapterId == id);
         return View(chapter);
     }
 
     [HttpPost, ActionName("Delete"), ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
-        var chapter = await db.Chapters.FindAsync(id);
+        var chapter = await db.Chapters
+            .Include(c => c.Questions).ThenInclude(q => q.ExamQuestions)
+            .FirstOrDefaultAsync(c => c.Id == id);
         if (chapter != null)
         {
             if (!string.IsNullOrEmpty(chapter.SlidePath))
                 await fileStorage.DeleteAsync(chapter.SlidePath);
+
+            db.ExamQuestions.RemoveRange(chapter.Questions.SelectMany(q => q.ExamQuestions));
 
             var courseId = chapter.CourseId;
             db.Chapters.Remove(chapter);

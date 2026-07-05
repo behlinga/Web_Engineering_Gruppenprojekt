@@ -1,4 +1,5 @@
 using Azure.Storage.Blobs;
+using Azure.Storage.Sas;
 
 namespace Web_Engineering_Gruppenprojekt.Services;
 
@@ -6,10 +7,12 @@ public class AzureBlobStorageService(IConfiguration config) : IFileStorageServic
 {
     private BlobContainerClient GetContainer()
     {
-        var connStr = config["AzureBlobStorage:ConnectionString"]!;
+        var connStr = config.GetConnectionString("AzureBlobStorage")!;
         var container = config["AzureBlobStorage:ContainerName"] ?? "slides";
         return new BlobContainerClient(connStr, container);
     }
+
+    private static string GetBlobName(string filePath) => Path.GetFileName(new Uri(filePath).LocalPath);
 
     public async Task<(string fileName, string filePath)> UploadAsync(IFormFile file)
     {
@@ -28,9 +31,24 @@ public class AzureBlobStorageService(IConfiguration config) : IFileStorageServic
     public async Task DeleteAsync(string filePath)
     {
         var container = GetContainer();
-        var blobName = Path.GetFileName(new Uri(filePath).LocalPath);
-        await container.GetBlobClient(blobName).DeleteIfExistsAsync();
+        await container.GetBlobClient(GetBlobName(filePath)).DeleteIfExistsAsync();
     }
 
-    public string GetUrl(string filePath) => filePath;
+    public async Task<byte[]?> DownloadAsync(string filePath)
+    {
+        var blob = GetContainer().GetBlobClient(GetBlobName(filePath));
+        if (!await blob.ExistsAsync()) return null;
+
+        var content = await blob.DownloadContentAsync();
+        return content.Value.Content.ToArray();
+    }
+
+    public string GetUrl(string filePath)
+    {
+        var blob = GetContainer().GetBlobClient(GetBlobName(filePath));
+        if (!blob.CanGenerateSasUri) return filePath;
+
+        var sasUri = blob.GenerateSasUri(BlobSasPermissions.Read, DateTimeOffset.UtcNow.AddHours(1));
+        return sasUri.ToString();
+    }
 }

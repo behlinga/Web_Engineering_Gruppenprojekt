@@ -2,12 +2,13 @@
 @{
     ViewData["Title"] = $"Prüfung – {Model.Course.Title}";
     Layout = null;
+    bool showAnswers = ViewBag.ShowAnswers == true;
 }
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="utf-8" />
-    <title>Prüfung – @Model.Course.Title</title>
+    <title>Prüfung – @Model.Course.Title@(showAnswers ? " (Lösungsblatt)" : "")</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <style>
         body { font-size: 12pt; }
@@ -16,29 +17,41 @@
             .page-break { page-break-before: always; }
         }
         .answer-box { width: 20px; height: 20px; border: 1px solid #333; display: inline-block; margin-right: 8px; vertical-align: middle; }
+        .correct-answer { background-color: #d1e7dd; font-weight: 600; }
     </style>
 </head>
 <body class="p-4">
     <div class="d-flex justify-content-between align-items-start mb-4">
         <div>
-            <h3>@Model.Course.Title</h3>
+            <h3>@Model.Course.Title@(showAnswers ? " – Lösungsblatt" : "")</h3>
             <p class="mb-0">Dozent/in: @Model.Course.LecturerName</p>
             <p>Datum: @Model.Date.ToString("dd.MM.yyyy")</p>
         </div>
-        <div class="no-print">
+        <div class="no-print d-flex gap-2">
+            @if (showAnswers)
+            {
+                <a href="@Url.Action("Print", new { id = Model.Id })" class="btn btn-outline-secondary">Studentenversion</a>
+            }
+            else
+            {
+                <a href="@Url.Action("Print", new { id = Model.Id, showAnswers = true })" class="btn btn-outline-success">Lösungsblatt</a>
+            }
             <button onclick="window.print()" class="btn btn-primary">Drucken</button>
-            <a href="javascript:history.back()" class="btn btn-outline-secondary ms-2">Zurück</a>
+            <a href="@Url.Action("Index", "Exam", new { courseId = Model.CourseId })" class="btn btn-outline-secondary">Zurück</a>
         </div>
     </div>
 
     <hr />
 
-    <table class="table w-100 mb-3 no-print">
-        <tr>
-            <td><strong>Name:</strong> _________________________________</td>
-            <td><strong>Matrikelnummer:</strong> ___________________</td>
-        </tr>
-    </table>
+    @if (!showAnswers)
+    {
+        <table class="table w-100 mb-3">
+            <tr>
+                <td><strong>Name:</strong> _________________________________</td>
+                <td><strong>Matrikelnummer:</strong> ___________________</td>
+            </tr>
+        </table>
+    }
 
     @{ int qNumber = 1; }
     @foreach (var eq in Model.ExamQuestions)
@@ -49,8 +62,16 @@
             <ul class="list-unstyled ms-3">
                 @foreach (var option in q.Options)
                 {
-                    <li class="mb-1">
-                        <span class="answer-box"></span> @option.AnswerText
+                    <li class="mb-1 @(showAnswers && option.IsCorrect ? "correct-answer" : "")">
+                        @if (showAnswers && option.IsCorrect)
+                        {
+                            <span style="margin-right:8px;">&#10003;</span>
+                        }
+                        else
+                        {
+                            <span class="answer-box"></span>
+                        }
+                        @option.AnswerText
                     </li>
                 }
             </ul>

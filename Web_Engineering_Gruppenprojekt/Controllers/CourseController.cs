@@ -60,6 +60,7 @@ public class CourseController(AppDbContext db) : Controller
             .Include(c => c.Exams)
             .FirstOrDefaultAsync(c => c.Id == id);
         if (course == null) return NotFound();
+        ViewBag.QuestionCount = await db.Questions.CountAsync(q => q.Chapter.CourseId == id);
         return View(course);
     }
 
@@ -69,6 +70,11 @@ public class CourseController(AppDbContext db) : Controller
         var course = await db.Courses.FindAsync(id);
         if (course != null)
         {
+            var examQuestions = await db.ExamQuestions
+                .Where(eq => eq.Question.Chapter.CourseId == id)
+                .ToListAsync();
+            db.ExamQuestions.RemoveRange(examQuestions);
+
             db.Courses.Remove(course);
             await db.SaveChangesAsync();
         }

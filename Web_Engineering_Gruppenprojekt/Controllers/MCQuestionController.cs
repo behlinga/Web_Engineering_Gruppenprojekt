@@ -23,6 +23,42 @@ public class MCQuestionController(AppDbContext db, IGeminiService gemini) : Cont
         return View(questions);
     }
 
+    public async Task<IActionResult> Create(int chapterId)
+    {
+        var chapter = await db.Chapters.Include(c => c.Course).FirstOrDefaultAsync(c => c.Id == chapterId);
+        if (chapter == null) return NotFound();
+
+        ViewBag.Chapter = chapter;
+        return View(new QuestionEditViewModel { ChapterId = chapterId, CorrectOption = 1 });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(QuestionEditViewModel vm)
+    {
+        if (!ModelState.IsValid)
+        {
+            ViewBag.Chapter = await db.Chapters.Include(c => c.Course).FirstOrDefaultAsync(c => c.Id == vm.ChapterId);
+            return View(vm);
+        }
+
+        var question = new MCQuestion
+        {
+            QuestionText = vm.QuestionText,
+            ChapterId = vm.ChapterId,
+            Options =
+            [
+                new MCAnswerOption { AnswerText = vm.Option1, IsCorrect = vm.CorrectOption == 1 },
+                new MCAnswerOption { AnswerText = vm.Option2, IsCorrect = vm.CorrectOption == 2 },
+                new MCAnswerOption { AnswerText = vm.Option3, IsCorrect = vm.CorrectOption == 3 },
+                new MCAnswerOption { AnswerText = vm.Option4, IsCorrect = vm.CorrectOption == 4 }
+            ]
+        };
+
+        db.Questions.Add(question);
+        await db.SaveChangesAsync();
+        return RedirectToAction(nameof(Index), new { chapterId = vm.ChapterId });
+    }
+
     public async Task<IActionResult> Edit(int id)
     {
         var question = await db.Questions.Include(q => q.Options).FirstOrDefaultAsync(q => q.Id == id);
@@ -79,10 +115,13 @@ public class MCQuestionController(AppDbContext db, IGeminiService gemini) : Cont
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
-        var question = await db.Questions.FindAsync(id);
+        var question = await db.Questions
+            .Include(q => q.ExamQuestions)
+            .FirstOrDefaultAsync(q => q.Id == id);
         if (question != null)
         {
             var chapterId = question.ChapterId;
+            db.ExamQuestions.RemoveRange(question.ExamQuestions);
             db.Questions.Remove(question);
             await db.SaveChangesAsync();
             return RedirectToAction(nameof(Index), new { chapterId });
@@ -90,7 +129,7 @@ public class MCQuestionController(AppDbContext db, IGeminiService gemini) : Cont
         return NotFound();
     }
 
-    [HttpPost]
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CheckQuestion(int id)
     {
         var feedback = await gemini.CheckQuestionAsync(id);
@@ -103,9 +142,21 @@ public class MCQuestionController(AppDbContext db, IGeminiService gemini) : Cont
         var chapter = await db.Chapters.FindAsync(chapterId);
         if (chapter == null) return NotFound();
 
-        var question = await gemini.GenerateQuestionAsync(chapter.SlidePath ?? "", chapterId);
+        MCQuestion? question;
+        try
+        {
+            question = await gemini.GenerateQuestionAsync(chapter.SlidePath ?? "", chapterId);
+        }
+        catch (GeminiRateLimitException)
+        {
+            TempData["Error"] = GeminiRateLimitException.UserMessage;
+            return RedirectToAction(nameof(Index), new { chapterId });
+        }
+
         if (question == null)
             TempData["Error"] = "Frage konnte nicht generiert werden. Bitte API-Schlüssel prüfen.";
+        else
+            TempData["Success"] = "KI-Frage erfolgreich generiert.";
 
         return RedirectToAction(nameof(Index), new { chapterId });
     }

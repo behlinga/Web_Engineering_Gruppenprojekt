@@ -142,6 +142,152 @@ Azure SQL (Cloud), Azure Blob Storage für Datei-Uploads, Google Gemini als LLM.
 
 ---
 
+## Prompt 9 – Bugfixes, fehlende Features und Qualitätsverbesserungen
+
+> Teste die App systematisch gegen das Lastenheft und behebe alle gefundenen Abweichungen:
+>
+> 1. **Bug: Löschen von Fragen schlägt fehl**, wenn die Frage einer Prüfung zugeordnet ist.
+>    Ursache: `DeleteBehavior.Restrict` auf `ExamQuestion → MCQuestion`. Fix: In der
+>    `Delete`-Action die `ExamQuestions` per `Include` mitladen und vor dem Löschen der
+>    Frage explizit mit `RemoveRange` entfernen.
+>
+> 2. **Fehlende Funktion: Fragen manuell anlegen.** Das Lastenheft fordert CRUD für Fragen.
+>    Ergänze `Create` (GET + POST) im `MCQuestionController` und eine eigene View
+>    `MCQuestion/Create.cshtml` (analog zur Edit-View, mit Breadcrumb und 4 Optionen per
+>    Radio-Control). Füge in der Fragenliste einen „+ Frage manuell"-Button hinzu.
+>
+> 3. **Sicherheit: `[ValidateAntiForgeryToken]` für `CheckQuestion`-Endpoint** fehlte. Füge
+>    das Attribut hinzu und sende das CSRF-Token im AJAX-Fetch als `FormData`-Body statt als
+>    Header (da ASP.NET den Token standardmäßig im Request-Body erwartet).
+>
+> 4. **Druckansicht: Lösungsblatt für Korrektoren.** Ergänze in `ExamController.Print` einen
+>    optionalen Parameter `bool showAnswers = false`. In `Print.cshtml` werden bei
+>    `showAnswers=true` die korrekten Antworten grün markiert (`.correct-answer`) und mit
+>    Häkchen versehen; ein Umschalter-Button wechselt zwischen Studenten- und
+>    Korrektorenversion.
+>
+> 5. **UX: Erfolgsmeldung nach KI-Fragen-Generierung.** Setze `TempData["Success"]` wenn
+>    `GenerateQuestionAsync` erfolgreich war; zeige den Alert in der Fragenliste an.
+>
+> 6. **UX: Kaskadierungs-Info auf Delete-Seiten.** Beim Löschen einer Lehrveranstaltung die
+>    Anzahl betroffener Kapitel, Fragen und Prüfungen anzeigen; beim Löschen eines Kapitels
+>    die Anzahl betroffener Fragen. Dazu je eine zusätzliche DB-Abfrage im Controller und
+>    `ViewBag`-Übergabe an die View.
+>
+> 7. **Prüfungsliste: Datum als Link auf Druckansicht.** Das Lastenheft schreibt vor, dass
+>    „jeder Eintrag ein Link auf die druckbare Liste" ist. Das Datum-`<td>` in
+>    `Exam/Index.cshtml` muss als `<a asp-action="Print">` formatiert sein.
+>
+> 8. **Code-Qualität: `Random.Shared.Shuffle` statt `OrderBy(_ => Guid.NewGuid())`.** Das
+>    Guid-Shuffle ist kein zuverlässiges Zufallsverfahren. Konvertiere die Liste in ein Array
+>    und nutze `Random.Shared.Shuffle(arr)` (verfügbar ab .NET 8).
+
+---
+
+## Prompt 10 – Live-Fehleranalyse und Behebung (Azure-Deployment)
+
+> Teste die auf Azure App Service deployte Anwendung systematisch (Klick-Test aller Views)
+> und verifiziere jeden gefundenen Fehler zusätzlich im Quellcode, bevor du ihn behebst.
+> Behebe anschließend folgende Punkte:
+>
+> 1. **Bug: KI-Prüfung lädt endlos.** In `MCQuestion/Index.cshtml` überschreibt im
+>    `checkQuestion(id)`-Script eine innere `const body = new FormData()` die äußere
+>    `const body`-Variable (das Modal-Div) durch Shadowing. Dadurch schreibt
+>    `body.innerText = data.feedback` ins FormData-Objekt statt ins DOM, der Spinner bleibt
+>    hängen. Fix: innere Variable in `formData` umbenennen.
+>
+> 2. **Fehlende Klickbarkeit: Fragen-Badge in der Prüfungsliste.** Analog zum Datum soll auch
+>    der „X Fragen“-Badge in `Exam/Index.cshtml` als `<a asp-action="Print">` zur Druckansicht
+>    verlinken statt ein reines `<span>` zu sein.
+>
+> 3. **Unnötigen Privacy-Link entfernen.** In `Shared/_Layout.cshtml` verweist der
+>    Footer-Link auf eine nicht existierende bzw. nicht geforderte Privacy-Seite – entfernen.
+>
+> 4. **UI: Bearbeiten/Löschen als Icons statt Text.** In `Course/Index.cshtml`,
+>    `Chapter/Index.cshtml`, `MCQuestion/Index.cshtml` und `Exam/Index.cshtml` die
+>    Text-Buttons „Bearbeiten“/„Löschen“ durch Bootstrap-Icons (`bi-pencil`, `bi-trash`) mit
+>    `title`-Attribut für Barrierefreiheit ersetzen. Dazu Bootstrap Icons per CDN im Layout
+>    einbinden.
+>
+> 5. **Bug: Zurück-Button in der Druckansicht funktioniert nicht / neue Tabs.** In
+>    `Exam/Index.cshtml` öffnen Prüfungs- und Drucken-Links mit `target="_blank"` einen neuen
+>    Tab ohne Historie; der Zurück-Link in `Exam/Print.cshtml` nutzt
+>    `javascript:history.back()` und läuft dort ins Leere. Fix: `target="_blank"` entfernen
+>    und den Zurück-Link stattdessen auf eine echte URL
+>    (`Url.Action("Index", "Exam", new { courseId = Model.CourseId })`) setzen.
+>
+> 6. **Schwerwiegender Bug: Kapitel/Kurs löschen kann eine Fremdschlüssel-Exception werfen.**
+>    `ExamQuestion → MCQuestion` ist auf `DeleteBehavior.Restrict` konfiguriert;
+>    `ChapterController.DeleteConfirmed` und `CourseController.DeleteConfirmed` entfernen die
+>    zugehörigen `ExamQuestion`-Verknüpfungen nicht (im Gegensatz zur bereits korrekten
+>    `MCQuestionController.Delete`). Fix: In beiden Delete-Actions vor dem eigentlichen
+>    Löschen alle `ExamQuestion`-Einträge der betroffenen Fragen per `RemoveRange` entfernen
+>    (beim Kapitel über `Include(Questions).ThenInclude(ExamQuestions)`, beim Kurs über eine
+>    Query über alle Kapitel/Fragen des Kurses).
+>
+> 7. **Bug: Namensfeld verschwindet beim Drucken.** In `Exam/Print.cshtml` trägt die
+>    Name-/Matrikelnummer-Tabelle fälschlich die Klasse `no-print` und wird beim Drucken
+>    ausgeblendet – Klasse entfernen (nur die Buttonleiste soll `no-print` bleiben).
+>
+> 8. **Bug: PDF nicht abrufbar (`PublicAccessNotPermitted`) und KI-Fragengenerierung ignoriert
+>    das PDF – gemeinsame Wurzel: kein authentifizierter Blob-Zugriff.**
+>    `AzureBlobStorageService` speichert und liefert die nackte Blob-URI ohne SAS-Token, der
+>    Storage Account erlaubt aber keinen anonymen Zugriff; `GeminiService` liest PDFs nur vom
+>    lokalen Dateisystem und überspringt http(s)-Pfade (Azure Blob) komplett. Fix:
+>    - Ergänze `IFileStorageService` um `DownloadAsync(path)` für authentifizierten
+>      Byte-Zugriff; implementiere es in `LocalFileStorageService` (Datei aus `wwwroot`
+>      lesen) und in `AzureBlobStorageService` (`BlobClient.DownloadContentAsync()`).
+>    - `AzureBlobStorageService.GetUrl(path)` generiert per `BlobClient.GenerateSasUri`
+>      (Read, 1h Gültigkeit) eine signierte URL statt die rohe Blob-URI zurückzugeben.
+>    - `GeminiService.GenerateQuestionAsync` nutzt statt direktem Dateisystemzugriff nur
+>      noch `IFileStorageService.DownloadAsync`, wodurch lokale und Azure-Pfade einheitlich
+>      und transparent funktionieren (kein Sonderfall mehr für http-Präfixe nötig).
+>    - Views (`Chapter/Index.cshtml`, `Chapter/Edit.cshtml`) verlinken die Folien-URL über
+>      `FileStorage.GetUrl(...)` statt die gespeicherte `SlidePath` direkt zu verwenden.
+>
+> 9. **Robustheit: Kein Timeout beim Gemini-HttpClient.** Ergänze in `Program.cs`
+>    `.ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30))` beim Registrieren von
+>    `IGeminiService`, damit eine hängende Gemini-API den Request nicht unbegrenzt blockiert.
+>
+> 10. **UX: Kein Lade-Feedback bei „KI-Frage generieren“.** Der Button löst einen normalen
+>     Formular-POST aus, die Seite wirkt bis zum Neuladen eingefroren. Deaktiviere den Button
+>     per JavaScript beim Submit und zeige einen Bootstrap-Spinner mit „Wird generiert...“.
+
+---
+
+## Prompt 11 – Cold-Start-Robustheit und weniger repetitive KI-Fragen
+
+> Behebe drei Punkte, ohne bestehende Funktionalität (KI-Prüfung, Blob-Upload,
+> Prüfungserstellung) zu verändern:
+>
+> 1. **Bug: Intermittierende Fehlerseiten beim ersten Request (Cold Start).** Nach
+>    Inaktivität wirft der erste Request eine Fehlerseite, weil die Azure-SQL-Verbindung
+>    beim Cold Start noch nicht steht. Fix: Im SqlServer-Zweig von
+>    `AddDbContext<AppDbContext>` Connection Resiliency aktivieren
+>    (`options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(...))`, der
+>    Sqlite-Zweig bleibt unverändert). Zusätzlich den DB-Init-Block (`EnsureCreated`/
+>    `Migrate`) mit einer kleinen Retry-Schleife (3 Versuche, kurzer Delay) umschließen,
+>    damit ein fehlgeschlagener erster Verbindungsaufbau die App nicht crasht. Als Kommentar
+>    ergänzen, dass zusätzlich „Always On“ im App Service aktiviert werden sollte (kann nicht
+>    per Code gesetzt werden).
+>
+> 2. **Verifikation: Hero-Button auf der Startseite.** Prüfe, ob der Button „Zu den
+>    Lehrveranstaltungen“ ein sauberer Link ohne dazwischenfunkenden JS-Handler ist. Ergebnis:
+>    `wwwroot/js/site.js` ist leer, kein `addEventListener`/`preventDefault` im Projekt – der
+>    `<a asp-controller="Course" asp-action="Index">` löst korrekt auf, keine Änderung nötig.
+>
+> 3. **Problem: KI generiert fast identische Fragen.** `GenerateQuestionAsync` bekommt nur
+>    das PDF und den Auftrag „Erstelle eine Frage“ – ohne Kenntnis existierender Fragen, was
+>    bei kurzen PDFs zu Wiederholungen führt. Fix: Vor dem Prompt-Aufbau die vorhandenen
+>    Fragen des Kapitels laden (`db.Questions.Where(q => q.ChapterId == chapterId)
+>    .Select(q => q.QuestionText).ToListAsync()`) und als Liste in den Prompt einbetten, mit
+>    der expliziten Anweisung, ein anderes Thema/einen anderen Aspekt zu wählen und keine der
+>    vorhandenen Fragen zu wiederholen (mit Fallback-Hinweis, falls noch keine existieren).
+>    Zusätzlich `generationConfig = { temperature = 1.0 }` im `requestBody` ergänzen, um die
+>    Varianz zu erhöhen. JSON-Antwortformat und Parse-Logik bleiben unverändert.
+
+---
+
 ## Beispiel für einen Zusammenfassungs-Prompt (Meta-Technik)
 
 > Fasse die letzten Schritte, mit denen wir die Fragen- und Prüfungsverwaltung implementiert
