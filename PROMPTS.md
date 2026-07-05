@@ -288,6 +288,190 @@ Azure SQL (Cloud), Azure Blob Storage für Datei-Uploads, Google Gemini als LLM.
 
 ---
 
+## Prompt 12 – Fehlende Create-View für manuelle MC-Fragen
+
+> Fix the manual MC question creation error.
+>
+> Context: ASP.NET Core MVC project, branch `feature/azure-storage-config`.
+> Beim Klick auf **"+ Frage manuell"** crasht Azure, weil die View
+> `Views/MCQuestion/Create.cshtml` fehlt. Im Controller existieren bereits
+> `GET Create(int chapterId)` und `POST Create(QuestionEditViewModel vm)`;
+> `Edit.cshtml` und `Index.cshtml` sind vorhanden.
+>
+> Erstelle die fehlende View `Web_Engineering_Gruppenprojekt/Views/MCQuestion/Create.cshtml`.
+> Keine Datenbankmodelle, `Program.cs` oder unrelated files ändern. Die View soll Stil und
+> Struktur von `Views/MCQuestion/Edit.cshtml` wiederverwenden, `@model QuestionEditViewModel`
+> nutzen, `ViewBag.Chapter` konsistent mit Index/Edit verwenden, per Formular an die
+> POST-Create-Action senden, `@Html.AntiForgeryToken()` und ein hidden `ChapterId` enthalten.
+> Felder für `QuestionText`, `Option1`, `Option2`, `Option3`, `Option4` und `CorrectOption`
+> bereitstellen; `CorrectOption` soll Option 1 bis 4 auswählen lassen. Validation Summary
+> und Validation Messages sollen konsistent mit `Edit.cshtml` sein. Submit-Button:
+> **"Frage erstellen"**. Back-Link zu `MCQuestion/Index` mit `chapterId = Model.ChapterId`.
+> Danach `dotnet build` ausführen.
+
+Ergebnis: Die fehlende Razor-View wurde angelegt; betroffen war nur
+`Web_Engineering_Gruppenprojekt/Views/MCQuestion/Create.cshtml`.
+
+---
+
+## Prompt 13 – Blob-Storage-Connection-String über ConnectionStrings lesen
+
+> Ändere genau zwei Stellen, sonst nichts:
+>
+> 1. In Services/AzureBlobStorageService.cs: Ersetze
+>    config["AzureBlobStorage:ConnectionString"]!
+>    durch
+>    config.GetConnectionString("AzureBlobStorage")!
+>
+> 2. In Program.cs: Ersetze
+>    builder.Configuration["AzureBlobStorage:ConnectionString"]
+>    durch
+>    builder.Configuration.GetConnectionString("AzureBlobStorage")
+>
+> Die Zeile mit AzureBlobStorage:ContainerName bleibt unverändert. Ändere keine weiteren Dateien.
+
+Ergebnis: Der Blob-Storage-Connection-String wird nun über `GetConnectionString("AzureBlobStorage")` aus dem ConnectionStrings-Bereich gelesen statt als App-Setting `AzureBlobStorage:ConnectionString`. Hintergrund: Die Azure-Subscription der Universität blockt per Policy App-Einstellungen mit dem Präfix `AzureBlobStorage`; der ConnectionStrings-Bereich (Typ Custom) ist davon nicht betroffen.
+
+---
+
+## Prompt 14 – Kapitel anlegen/bearbeiten: Course-Navigation aus ModelState entfernen
+
+> In Controllers/ChapterController.cs sollen genau zwei Zeilen ergänzt werden, sonst nichts:
+>
+> 1. In der Methode [HttpPost] Create(Chapter chapter, IFormFile? slideFile): Füge als allererste Zeile im Methodenkörper ein:
+>    ModelState.Remove(nameof(Chapter.Course));
+>
+> 2. In der Methode [HttpPost] Edit(int id, Chapter chapter, IFormFile? slideFile, bool deleteFile = false): Füge als allererste Zeile im Methodenkörper ein:
+>    ModelState.Remove(nameof(Chapter.Course));
+>
+> Ändere keine anderen Methoden, keine anderen Dateien, keine Logik. Nur diese zwei Zeilen einfügen.
+
+Ergebnis: In `Create` und `Edit` des `ChapterController` wird die non-nullable Navigation-Property `Course` vor der `ModelState.IsValid`-Prüfung aus dem ModelState entfernt. Zuvor schlug die Validierung fehl (das Formular übergibt nur `CourseId`, nicht das `Course`-Objekt), wodurch das Kapitel nie gespeichert wurde – ohne sichtbare Fehlermeldung.
+
+---
+
+## Prompt 15 – Gemini-Modell auf gemini-2.5-flash aktualisieren
+
+> In Services/GeminiService.cs, Zeile 11: Ersetze in der const string BaseUrl genau den Modellnamen
+> gemini-1.5-flash
+> durch
+> gemini-2.5-flash
+>
+> Die URL bleibt sonst exakt gleich (v1beta, generateContent unverändert). Ändere nichts anderes, keine weiteren Dateien.
+
+Ergebnis: Der Modellname in der Gemini-BaseUrl wurde von `gemini-1.5-flash` auf `gemini-2.5-flash` geändert. `gemini-1.5-flash` liefert am `generateContent`-Endpunkt der v1beta-API einen HTTP 404 (von Google abgekündigt); mit `gemini-2.5-flash` funktioniert die KI-Fragengenerierung wieder.
+
+---
+
+## Prompt 16 – Alert-Verhalten nach KI-Fragengenerierung
+
+> Prompt-Ziel: Verbessere das Alert-Verhalten auf der `MCQuestion`-Indexseite. Bestehende
+> Bootstrap-Erfolgsalerts sollen nach etwa fünf Sekunden automatisch verschwinden. Beim
+> erneuten Absenden von **"+ KI-Frage generieren"** sollen alte Erfolgs- oder Fehlermeldungen
+> sofort ausgeblendet werden, während das bestehende Ladeverhalten mit Spinner und
+> **"Wird generiert..."** erhalten bleibt.
+>
+> Keine Datenbankmodelle, Controller, Azure-Einstellungen oder unrelated files ändern.
+
+Ergebnis: Die Alert-Logik wurde in `Views/MCQuestion/Index.cshtml` ergänzt: Success-Alerts
+blenden automatisch aus, und alte Alerts werden beim Start einer neuen KI-Generierung
+sofort verborgen.
+
+---
+
+## Prompt 17 – Verständliche Gemini-Rate-Limit-Meldung
+
+> Prompt-Ziel: Verbessere die Fehlerbehandlung für Gemini-API-Rate-Limits bei
+> KI-Fragengenerierung und KI-Prüfung. Gemini-Fehler wie HTTP 429,
+> `RESOURCE_EXHAUSTED`, `quota exceeded`, `rate limit` oder ähnliche API-Fehlertexte
+> sollen mit einer klaren deutschen Meldung angezeigt werden:
+> **"Limit der Gemini API erreicht. Tageslimits werden voraussichtlich gegen 09:15 Uhr
+> deutscher Zeit zurückgesetzt. Bitte später erneut versuchen."**
+>
+> Andere Fehler sollen wie bisher generisch behandelt werden. Keine Datenbankmodelle,
+> Migrationen, Azure-Einstellungen oder unrelated files ändern.
+
+Ergebnis: In `Services/GeminiService.cs` wurde eine Rate-Limit-Erkennung für Gemini-Fehler
+ergänzt. `Controllers/MCQuestionController.cs` zeigt die Meldung bei KI-Fragengenerierung
+als `TempData["Error"]` an; bei KI-Prüfung wird sie direkt im Modal-Feedback ausgegeben.
+
+---
+
+## Prompt 18 – Niedrige Gemini-Temperatur für deterministische KI-Ausgaben
+
+> Prompt-Ziel: Setze eine niedrige Gemini-Temperatur für stabilere MC-Fragengenerierung
+> und deterministischere KI-Prüfungen. Für KI-Fragengenerierung soll eine Temperatur um
+> 0.3 verwendet werden; für KI-Prüfung eine Temperatur von 0.0 oder 0.1. Das bestehende
+> Modell `gemini-2.5-flash`, Prompts, JSON-Parsing und die Rate-Limit-Behandlung sollen
+> unverändert bleiben.
+>
+> Keine Datenbankmodelle, Migrationen, Azure-Einstellungen oder unrelated files ändern.
+
+Ergebnis: In `Services/GeminiService.cs` wurde `generationConfig.temperature` für
+KI-Fragengenerierung auf `0.3` und für KI-Prüfung auf `0.0` gesetzt.
+
+---
+
+## Prompt 19 – Lehrveranstaltung zuverlässig mit abhängigen Daten löschen
+
+> Fix only the backend delete logic for deleting a Lehrveranstaltung.
+>
+> Context: Die Delete view für Lehrveranstaltungen existiert bereits und ist ausreichend.
+> Sie zeigt eine Warnung mit der Anzahl der Kapitel, Fragen und Prüfungen und hat
+> **"Löschen"**- und **"Abbrechen"**-Buttons.
+>
+> Problem: Beim Bestätigen des Löschens wirft die App HTTP 500. Azure-Logs zeigen eine
+> `DbUpdateConcurrencyException` in `CourseController.DeleteConfirmed`; SQL-Logs deuten
+> darauf hin, dass Course deletion und ExamQuestions deletion in einem `SaveChanges`-Batch
+> gemischt werden.
+>
+> `CourseController.DeleteConfirmed` soll so korrigiert werden, dass eine Lehrveranstaltung
+> mit Kapiteln, Fragen, Antwortoptionen und Prüfungen zuverlässig gelöscht wird. Keine
+> zusätzliche Bestätigungsmodal oder Bestätigungsseite ergänzen, die bestehende Delete-View
+> weitgehend unverändert lassen, keine Datenbankmodelle, Migrationen, Azure-Einstellungen
+> oder unrelated files ändern. Abhängige Daten sollen explizit und in sicherer Reihenfolge
+> per `ExecuteDeleteAsync` gelöscht werden: `ExamQuestions` der Prüfungen des Kurses,
+> `ExamQuestions` der Fragen aus Kurskapiteln, `AnswerOptions`, `Questions`, `Exams`,
+> `Chapters`, danach der `Course` selbst; die Operation soll in einer Transaktion laufen.
+> Falls der Kurs nicht mehr existiert, sicher zu `Index` weiterleiten.
+
+Ergebnis: Die Löschlogik wurde in
+`Web_Engineering_Gruppenprojekt/Controllers/CourseController.cs` auf explizite
+`ExecuteDeleteAsync`-Löschungen in sicherer Reihenfolge umgestellt. Die bestehende
+Delete-View blieb erhalten; es wurde keine zusätzliche Bestätigungsmodal und keine
+zusätzliche Bestätigungsseite ergänzt.
+
+---
+
+## Prompt 20 – Azure-SQL-Retry-Strategie für Delete-Transaktion
+
+> Fix the `CourseController.DeleteConfirmed` transaction for Azure SQL retry execution
+> strategy.
+>
+> Context: Der vorherige Backend-Delete-Fix schlägt auf Azure SQL mit dem Runtime-Fehler
+> fehl, dass `SqlServerRetryingExecutionStrategy` keine user-initiierten Transaktionen
+> unterstützt. Die Transaktion soll über die von
+> `DbContext.Database.CreateExecutionStrategy()` zurückgegebene Execution Strategy als
+> retriable unit ausgeführt werden.
+>
+> Aktualisiere nur `CourseController.DeleteConfirmed`: Die bestehende Delete-View
+> unverändert lassen, die explizite sichere Löschreihenfolge und die Transaktion
+> beibehalten, aber die gesamte transaktionale Löschoperation in
+> `var strategy = db.Database.CreateExecutionStrategy(); await strategy.ExecuteAsync(async () => { ... });`
+> kapseln. Innerhalb des Execution-Strategy-Blocks die Transaktion öffnen, alle
+> `ExecuteDeleteAsync`-Operationen in sicherer Reihenfolge ausführen und die Transaktion
+> committen. Keine Transaktion außerhalb des Blocks starten, kein `SaveChangesAsync` für
+> bereits per `ExecuteDeleteAsync` gelöschte Entitäten verwenden, bei nicht vorhandenem Kurs
+> sicher zu `Index` weiterleiten. Keine Datenbankmodelle, Migrationen, Azure-Einstellungen
+> oder unrelated files ändern.
+
+Ergebnis: In `Web_Engineering_Gruppenprojekt/Controllers/CourseController.cs` wird die
+Delete-Transaktion nun innerhalb von `CreateExecutionStrategy().ExecuteAsync(...)`
+geöffnet und committed. Die bestehende Delete-View blieb erhalten; es wurde keine
+zusätzliche Bestätigungsmodal und keine zusätzliche Bestätigungsseite ergänzt.
+
+---
+
 ## Beispiel für einen Zusammenfassungs-Prompt (Meta-Technik)
 
 > Fasse die letzten Schritte, mit denen wir die Fragen- und Prüfungsverwaltung implementiert
