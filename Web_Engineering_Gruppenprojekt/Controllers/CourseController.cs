@@ -67,17 +67,42 @@ public class CourseController(AppDbContext db) : Controller
     [HttpPost, ActionName("Delete"), ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
-        var course = await db.Courses.FindAsync(id);
-        if (course != null)
-        {
-            var examQuestions = await db.ExamQuestions
-                .Where(eq => eq.Question.Chapter.CourseId == id)
-                .ToListAsync();
-            db.ExamQuestions.RemoveRange(examQuestions);
+        await using var transaction = await db.Database.BeginTransactionAsync();
 
-            db.Courses.Remove(course);
-            await db.SaveChangesAsync();
-        }
+        var courseExists = await db.Courses.AnyAsync(c => c.Id == id);
+        if (!courseExists)
+            return RedirectToAction(nameof(Index));
+
+        await db.ExamQuestions
+            .Where(eq => eq.Exam.CourseId == id)
+            .ExecuteDeleteAsync();
+
+        await db.ExamQuestions
+            .Where(eq => eq.Question.Chapter.CourseId == id)
+            .ExecuteDeleteAsync();
+
+        await db.AnswerOptions
+            .Where(a => a.Question.Chapter.CourseId == id)
+            .ExecuteDeleteAsync();
+
+        await db.Questions
+            .Where(q => q.Chapter.CourseId == id)
+            .ExecuteDeleteAsync();
+
+        await db.Exams
+            .Where(e => e.CourseId == id)
+            .ExecuteDeleteAsync();
+
+        await db.Chapters
+            .Where(c => c.CourseId == id)
+            .ExecuteDeleteAsync();
+
+        await db.Courses
+            .Where(c => c.Id == id)
+            .ExecuteDeleteAsync();
+
+        await transaction.CommitAsync();
+
         return RedirectToAction(nameof(Index));
     }
 }
