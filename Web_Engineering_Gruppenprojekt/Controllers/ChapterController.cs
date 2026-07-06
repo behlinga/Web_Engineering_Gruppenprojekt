@@ -36,6 +36,14 @@ public class ChapterController(AppDbContext db, IFileStorageService fileStorage)
     public async Task<IActionResult> Create(Chapter chapter, IFormFile? slideFile)
     {
         ModelState.Remove(nameof(Chapter.Course));
+
+        var numberTaken = await db.Chapters.AnyAsync(c =>
+            c.CourseId == chapter.CourseId && c.ChapterNumber == chapter.ChapterNumber);
+        if (numberTaken)
+        {
+            ModelState.AddModelError(nameof(Chapter.ChapterNumber), "Kapitelnummer im Kurs bereits vergeben.");
+        }
+
         if (slideFile != null && slideFile.Length > 0)
         {
             var (fileName, path) = await fileStorage.UploadAsync(slideFile);
@@ -70,6 +78,13 @@ public class ChapterController(AppDbContext db, IFileStorageService fileStorage)
 
         var existing = await db.Chapters.FindAsync(id);
         if (existing == null) return NotFound();
+
+        var numberTaken = await db.Chapters.AnyAsync(c =>
+            c.CourseId == existing.CourseId && c.ChapterNumber == chapter.ChapterNumber && c.Id != id);
+        if (numberTaken)
+        {
+            ModelState.AddModelError(nameof(Chapter.ChapterNumber), "Kapitelnummer im Kurs bereits vergeben.");
+        }
 
         if (deleteFile && !string.IsNullOrEmpty(existing.SlidePath))
         {
