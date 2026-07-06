@@ -472,6 +472,39 @@ zusätzliche Bestätigungsmodal und keine zusätzliche Bestätigungsseite ergän
 
 ---
 
+## Prompt 21 – Live-Testbericht: Kapitelnummer-Eindeutigkeit und Seed-Daten erweitern
+
+> Live-Test der auf Azure deployten Anwendung im Browser gegen das Lastenheft. Alle
+> Kernfunktionen (Startseite, LV-Liste, Kapitelliste, Fragenverwaltung, KI-Prüfung,
+> KI-Generierung, Prüfungserstellung, Druckansicht, kaskadierendes Löschen) sind vorhanden
+> und funktionieren. Zwei Punkte sind offen:
+>
+> 1. **Bug: Kapitelnummern nicht eindeutig.** Beim Anlegen eines Kapitels mit einer im
+>    selben Kurs bereits vergebenen Nummer wird kein Validierungsfehler ausgelöst; das
+>    Duplikat wird gespeichert (reproduziert: zwei Kapitel Nr. 2 im Kurs „Algorithmen und
+>    Datenstrukturen"). Fix auf zwei Ebenen:
+>    - DB: Unique-Index auf `(CourseId, ChapterNumber)`, nicht global auf die Nummer allein
+>      (verschiedene Kurse dürfen je bei 1 starten). Migration erstellen und anwenden.
+>    - Controller (`Chapter` Create + Edit): vor dem Speichern prüfen, ob die Nummer im Kurs
+>      bereits existiert (bei Edit die eigene Id ausschließen), sonst
+>      `ModelState.AddModelError` statt einer DB-Exception.
+> 2. **Cleanup:** Testdaten-Artefakte in der Live-Datenbank (Kapitel „rfear", Frage „sdf"
+>    u. Ä.) bewusst nicht angetastet – reiner Code-Fix, keine manuelle Datenkorrektur.
+>
+> Erweitere zusätzlich die Seeding-Daten um weitere Kapitel, Fragen und Antwortoptionen.
+
+Ergebnis: In `Data/AppDbContext.cs` wurde ein Unique-Index auf `(CourseId, ChapterNumber)`
+ergänzt; `Controllers/ChapterController.cs` prüft in `Create` und `Edit` vor dem Speichern
+auf eine bereits vergebene Kapitelnummer im selben Kurs und meldet einen sauberen
+`ModelState`-Fehler statt einer DB-Exception. Die EF-Migration
+`20260706095408_ChapterNumberUniquePerCourse` wurde erzeugt und lokal gegen eine frische
+SQLite-Datenbank verifiziert (Duplikat-Versuch zeigt „Kapitelnummer im Kurs bereits
+vergeben.“, kein Absturz). Zusätzlich wurden die Seed-Daten um vier weitere Kapitel (je
+zwei pro bestehendem Kurs), acht weitere Fragen mit je vier Antwortoptionen sowie eine
+zweite Demo-Prüfung erweitert.
+
+---
+
 ## Beispiel für einen Zusammenfassungs-Prompt (Meta-Technik)
 
 > Fasse die letzten Schritte, mit denen wir die Fragen- und Prüfungsverwaltung implementiert
