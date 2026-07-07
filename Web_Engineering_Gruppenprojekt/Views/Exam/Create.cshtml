@@ -16,7 +16,7 @@
 
 <div class="row">
     <div class="col-md-5">
-        <form asp-action="Create">
+        <form asp-action="Create" novalidate>
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <input type="hidden" asp-for="CourseId" />
             <input type="hidden" asp-for="CourseTitle" />
@@ -32,7 +32,7 @@
                     Anzahl der Fragen
                     <span class="text-muted small">(max. @totalQuestions verfügbar)</span>
                 </label>
-                <input asp-for="NumberOfQuestions" class="form-control" type="number" min="1" max="@totalQuestions" />
+                <input asp-for="NumberOfQuestions" class="form-control" type="number" />
                 <span asp-validation-for="NumberOfQuestions" class="text-danger"></span>
             </div>
 

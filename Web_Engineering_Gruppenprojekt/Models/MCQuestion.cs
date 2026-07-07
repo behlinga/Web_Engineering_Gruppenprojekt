@@ -6,7 +6,8 @@ public class MCQuestion
 {
     public int Id { get; set; }
 
-    [Required]
+    [Display(Name = "Fragetext")]
+    [Required(ErrorMessage = "Bitte einen Fragetext eingeben.")]
     public string QuestionText { get; set; } = "";
 
     public int ChapterId { get; set; }

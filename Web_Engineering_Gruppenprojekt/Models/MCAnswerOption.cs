@@ -6,7 +6,8 @@ public class MCAnswerOption
 {
     public int Id { get; set; }
 
-    [Required]
+    [Display(Name = "Antworttext")]
+    [Required(ErrorMessage = "Bitte einen Antworttext eingeben.")]
     public string AnswerText { get; set; } = "";
 
     public bool IsCorrect { get; set; }

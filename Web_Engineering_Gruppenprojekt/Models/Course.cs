@@ -8,10 +8,14 @@ public class Course
 {
     public int Id { get; set; }
 
-    [Required, MaxLength(200)]
+    [Display(Name = "Titel")]
+    [Required(ErrorMessage = "Bitte einen Titel eingeben.")]
+    [MaxLength(200)]
     public string Title { get; set; } = "";
 
-    [Required, MaxLength(200)]
+    [Display(Name = "Dozent/in")]
+    [Required(ErrorMessage = "Bitte einen Dozentennamen eingeben.")]
+    [MaxLength(200)]
     public string LecturerName { get; set; } = "";
 
     public CourseLevel Level { get; set; }

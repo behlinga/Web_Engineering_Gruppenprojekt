@@ -1,8 +1,7 @@
-@using Web_Engineering_Gruppenprojekt.Models.ViewModels
-@model QuestionEditViewModel
+@model Web_Engineering_Gruppenprojekt.Models.ViewModels.QuestionEditViewModel
 @{
     var chapter = ViewBag.Chapter as Web_Engineering_Gruppenprojekt.Models.Chapter;
-    ViewData["Title"] = "Frage erstellen";
+    ViewData["Title"] = "Neue Frage";
 }
 
 <nav aria-label="breadcrumb" class="mb-3">
@@ -10,16 +9,15 @@
         <li class="breadcrumb-item"><a asp-controller="Course" asp-action="Index">Lehrveranstaltungen</a></li>
         <li class="breadcrumb-item"><a asp-controller="Chapter" asp-action="Index" asp-route-courseId="@chapter?.CourseId">@chapter?.Course?.Title</a></li>
         <li class="breadcrumb-item"><a asp-action="Index" asp-route-chapterId="@Model.ChapterId">@chapter?.Title</a></li>
-        <li class="breadcrumb-item active">Frage erstellen</li>
+        <li class="breadcrumb-item active">Neue Frage</li>
     </ol>
 </nav>
 
-<h2>Frage erstellen</h2>
+<h2>Neue Frage</h2>
 
 <div class="row">
     <div class="col-md-8">
-        <form asp-action="Create" method="post" asp-antiforgery="false">
-            @Html.AntiForgeryToken()
+        <form asp-action="Create">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <input type="hidden" asp-for="ChapterId" />
 
@@ -47,7 +45,7 @@
             }
 
             <div class="d-flex gap-2 mt-3">
-                <button type="submit" class="btn btn-primary">Frage erstellen</button>
+                <button type="submit" class="btn btn-primary">Frage speichern</button>
                 <a asp-action="Index" asp-route-chapterId="@Model.ChapterId" class="btn btn-outline-secondary">Abbrechen</a>
             </div>
         </form>
