@@ -505,6 +505,57 @@ zweite Demo-Prüfung erweitert.
 
 ---
 
+## Prompt 22 – Deutsche Validierungsmeldungen und de-DE-Kultur
+
+> Behebe die englischen Validierungsmeldungen im MC-Klausurmanager. Bei leeren
+> Pflichtfeldern erscheinen aktuell Meldungen wie "The Title field is required." und
+> "The LecturerName field is required." — inkonsistent zur deutschen UI, dazu werden
+> interne Property-Namen angezeigt. Umsetzung (Kombination aus beidem):
+>
+> 1. Ergänze an allen Models/ViewModels mit Pflichtfeldern (Lehrveranstaltung, Kapitel,
+>    MC-Frage, MC-Antwortoption, Prüfungserstellung, Fragen-Bearbeitung) `[Display(Name = "...")]`
+>    und `[Required(ErrorMessage = "...")]` mit deutschen Texten, konsistent für alle
+>    Pflichtfelder (Kapitel: Titel, Kapitelnummer; Frage: Fragetext; Antwortoptionen; usw.).
+> 2. Stelle zusätzlich die Kultur global auf `de-DE`, damit auch übrige
+>    Framework-Meldungen (z. B. Typfehler bei Zahlenfeldern) deutsch sind
+>    (`app.UseRequestLocalization(...)` in `Program.cs`, korrekt vor `UseRouting`
+>    platziert).
+>
+> Danach im Browser verifizieren: leere Pflichtfelder abschicken und prüfen, dass alle
+> Meldungen deutsch erscheinen.
+>
+> **Nachtrag 1:** Bei `ChapterNumber` (`min="1"` im `<input type="number">`) erscheint
+> trotz deutscher `[Range]`-Meldung weiterhin eine englische Browser-/jQuery-Meldung
+> ("Please enter a value greater than or equal to 1."). Ursache finden und beheben —
+> ohne die serverseitige Validierung zu schwächen.
+>
+> **Nachtrag 2:** Die Geschäftsregel ändern: Kapitelnummer 0 soll ebenfalls ein gültiger
+> Wert sein (bisher war 1 die Untergrenze).
+
+Ergebnis: `[Display]`/`[Required]` mit deutschen Texten ergänzt in
+`Models/Course.cs`, `Models/Chapter.cs`, `Models/MCQuestion.cs`,
+`Models/MCAnswerOption.cs`, `Models/ViewModels/ExamCreateViewModel.cs` und
+`Models/ViewModels/QuestionEditViewModel.cs`. In `Program.cs` wurde
+`app.UseRequestLocalization(...)` mit `DefaultRequestCulture`/`SupportedCultures` =
+`de-DE` vor `UseHttpsRedirection`/`UseRouting` ergänzt.
+
+Beim Browser-Test zeigte sich, dass jQuery Validate das native `min`-Attribut auf
+`<input type="number" min="1">` selbst ausliest und dafür seine eigene englische
+Default-Meldung erzeugt, die die deutsche `data-val-range`-Meldung aus `[Range(...)]`
+überschreibt — unabhängig von der `de-DE`-Kultureinstellung, da rein clientseitig durch
+die JS-Bibliothek verursacht. Fix: Die redundanten nativen `min`/`max`-Attribute in
+`Views/Chapter/Create.cshtml`, `Views/Chapter/Edit.cshtml` und `Views/Exam/Create.cshtml`
+entfernt (die Range-Prüfung läuft weiterhin über die von `asp-for` generierten
+`data-val-range-*`-Attribute); `novalidate` auf den drei Formularen ergänzt, damit native
+Browser-Validierung generell nicht mehr eingreift. Anschließend wurde die Untergrenze für
+`ChapterNumber` in `Models/Chapter.cs` von `[Range(1, int.MaxValue, ...)]` auf
+`[Range(0, int.MaxValue, ErrorMessage = "Die Kapitelnummer darf nicht negativ sein.")]`
+geändert, sodass 0 ein gültiger Wert ist. Alle Fälle wurden im Browser verifiziert
+(leere Pflichtfelder, Kapitelnummer 0 und negative Werte, dynamische Fragenanzahl im
+Prüfungsformular).
+
+---
+
 ## Beispiel für einen Zusammenfassungs-Prompt (Meta-Technik)
 
 > Fasse die letzten Schritte, mit denen wir die Fragen- und Prüfungsverwaltung implementiert
